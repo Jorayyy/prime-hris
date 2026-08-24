@@ -85,7 +85,7 @@ export default async function SettingsPage() {
               <li key={t.id} className="flex justify-between px-5 py-2.5">
                 <span className="font-semibold">{t.name}</span>
                 <span className="font-mono text-xs text-[var(--muted)]">
-              <li className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-sm"><span className="font-semibold">{t.name}</span><span className="text-xs text-slate-500">{t.startTime}→{t.endTime} · used {t._count.assignments}×</span></li>
+                  {t.startTime} → {t.endTime} · used {t._count.assignments}×
                 </span>
               </li>
             ))}
