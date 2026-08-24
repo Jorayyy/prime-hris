@@ -1,4 +1,4 @@
-{
+﻿{
     "name":  "final-hris",
     "version":  "0.1.0",
     "private":  true,
@@ -38,8 +38,5 @@
                          "@prisma/engines@6.19.3":  true,
                          "esbuild@0.28.2":  true,
                          "unrs-resolver@1.12.2":  true
-                     },
-    "prisma":  {
-                   "seed":  "tsx prisma/seed.ts"
-               }
+                     }
 }
