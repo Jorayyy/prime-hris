@@ -35,6 +35,15 @@ function clearFailures(key: string) {
 export async function POST(req: NextRequest) {
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "local";
 
+  // IP allowlist: if any active IPs are registered, only those may punch.
+  const allowed = await db.bundyAllowedIp.findMany({ where: { active: true }, select: { ip: true } });
+  if (allowed.length > 0 && !allowed.some((a) => a.ip === ip)) {
+    return NextResponse.json(
+      { ok: false, error: "This device is not a registered bundy terminal. Contact HR." },
+      { status: 403 },
+    );
+  }
+
   let body: { employeeNumber?: string; pin?: string; type?: string };
   try {
     body = await req.json();

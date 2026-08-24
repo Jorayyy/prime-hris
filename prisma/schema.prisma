@@ -12,6 +12,7 @@ datasource db {
 // ==============================
 
 enum Role {
+  SUPER_ADMIN
   ADMIN
   HR
   PAYROLL
@@ -124,9 +125,10 @@ model User {
   id           String    @id @default(cuid())
   email        String    @unique
   passwordHash String
-  role         Role      @default(EMPLOYEE)
-  isActive     Boolean   @default(true)
-  lastLoginAt  DateTime?
+  role            Role      @default(EMPLOYEE)
+  isActive        Boolean   @default(true)
+  mustChangePassword Boolean @default(false)
+  lastLoginAt     DateTime?
   employee     Employee?
   sessions     Session[]
   createdAt    DateTime  @default(now())
@@ -583,4 +585,14 @@ model AuditLog {
 
   @@index([entity, entityId])
   @@index([createdAt])
+}
+
+/// Registered workstation/office IPs allowed to use the bundy clock.
+/// If no active rows exist, punching is allowed from any address (dev/off mode).
+model BundyAllowedIp {
+  id        String   @id @default(cuid())
+  ip        String   @unique
+  label     String?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
 }

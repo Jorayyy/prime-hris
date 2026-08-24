@@ -118,17 +118,19 @@ export class ForbiddenError extends Error {
 
 export async function requireRole(...roles: Role[]): Promise<SessionUser> {
   const user = await requireUser();
-  if (!roles.includes(user.role)) throw new ForbiddenError();
+  if (!roles.includes(user.role) && user.role !== "SUPER_ADMIN") throw new ForbiddenError();
   return user;
 }
 
-export const MANAGEMENT_ROLES: Role[] = ["ADMIN", "HR", "PAYROLL", "MANAGER"];
-export const HR_ROLES: Role[] = ["ADMIN", "HR"];
-export const PAYROLL_ROLES: Role[] = ["ADMIN", "PAYROLL"];
+export const MANAGEMENT_ROLES: Role[] = ["SUPER_ADMIN", "ADMIN", "HR", "PAYROLL", "MANAGER"];
+export const HR_ROLES: Role[] = ["SUPER_ADMIN", "ADMIN", "HR"];
+export const PAYROLL_ROLES: Role[] = ["SUPER_ADMIN", "ADMIN", "PAYROLL"];
+/** Roles that can manage user accounts and system-wide customization. */
+export const SYSTEM_ROLES: Role[] = ["SUPER_ADMIN"];
 
 export async function canManage(...roles: Role[]) {
   const user = await getSessionUser();
-  if (!user || !roles.includes(user.role)) return null;
+  if (!user || (user.role !== "SUPER_ADMIN" && !roles.includes(user.role))) return null;
   return user;
 }
 

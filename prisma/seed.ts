@@ -30,6 +30,7 @@ async function main() {
   }
 
   // ---------- Users ----------
+  const superHash = await bcrypt.hash("Super@12345", 12);
   const adminHash = await bcrypt.hash("Admin@12345", 12);
   const hrHash = await bcrypt.hash("Hr@123456", 12);
   const payrollHash = await bcrypt.hash("Payroll@12345", 12);
@@ -38,6 +39,11 @@ async function main() {
     where: { email: "admin@company.com" },
     update: {},
     create: { email: "admin@company.com", passwordHash: adminHash, role: "ADMIN" },
+  });
+  const superAdmin = await db.user.upsert({
+    where: { email: "superadmin@company.com" },
+    update: {},
+    create: { email: "superadmin@company.com", passwordHash: superHash, role: "SUPER_ADMIN" },
   });
   await db.user.upsert({
     where: { email: "hr@company.com" },
@@ -206,6 +212,7 @@ async function main() {
   console.log("\n✅ Seed complete!");
   console.log("─────────────────────────────────────────");
   console.log("Login accounts:");
+  console.log("  Super:   superadmin@company.com / Super@12345  (system owner)");
   console.log("  Admin:   admin@company.com   / Admin@12345");
   console.log("  HR:      hr@company.com      / Hr@123456");
   console.log("  Payroll: payroll@company.com / Payroll@12345");

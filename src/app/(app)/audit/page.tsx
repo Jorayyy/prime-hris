@@ -11,7 +11,7 @@ export default async function AuditPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const user = (await getSessionUser())!;
-  if (user.role !== "ADMIN") {
+  if (!["SUPER_ADMIN", "ADMIN"].includes(user.role)) {
     return <EmptyState title="Not authorized" hint="Audit log is restricted to administrators." />;
   }
 

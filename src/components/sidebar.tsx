@@ -11,6 +11,7 @@ import {
   Settings,
   ScrollText,
   UserRound,
+  UserCog,
 } from "lucide-react";
 import { cx } from "@/components/ui";
 import type { Role } from "@prisma/client";
@@ -44,6 +45,7 @@ const NAV: Array<{ section: string; items: NavItem[] }> = [
     items: [
       { href: "/payroll", label: "Payroll", icon: Wallet, roles: ["ADMIN", "PAYROLL"] },
       { href: "/settings", label: "Settings", icon: Settings, roles: ["ADMIN", "HR"] },
+      { href: "/users", label: "User Accounts", icon: UserCog, roles: ["SUPER_ADMIN"] },
       { href: "/audit", label: "Audit Log", icon: ScrollText, roles: ["ADMIN"] },
     ],
   },

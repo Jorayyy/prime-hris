@@ -8,7 +8,7 @@ export const metadata = { title: "Schedules" };
 
 export default async function SchedulesPage() {
   const user = (await getSessionUser())!;
-  if (!["ADMIN", "HR"].includes(user.role)) {
+  if (!["SUPER_ADMIN", "ADMIN", "HR"].includes(user.role)) {
     return <EmptyState title="Not authorized" hint="Schedules are managed by HR." />;
   }
 
