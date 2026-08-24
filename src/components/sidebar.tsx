@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -34,19 +34,19 @@ const NAV: Array<{ section: string; items: NavItem[] }> = [
   {
     section: "People",
     items: [
-      { href: "/employees", label: "Employees", icon: Users, roles: ["ADMIN", "HR", "MANAGER"] },
-      { href: "/attendance", label: "Time & Attendance", icon: CalendarClock, roles: ["ADMIN", "HR", "PAYROLL", "MANAGER"] },
-      { href: "/schedules", label: "Schedules", icon: CalendarDays, roles: ["ADMIN", "HR"] },
+      { href: "/employees", label: "Employees", icon: Users, roles: ["SUPER_ADMIN", "ADMIN", "HR", "MANAGER"] },
+      { href: "/attendance", label: "Time & Attendance", icon: CalendarClock, roles: ["SUPER_ADMIN", "ADMIN", "HR", "PAYROLL", "MANAGER"] },
+      { href: "/schedules", label: "Schedules", icon: CalendarDays, roles: ["SUPER_ADMIN", "ADMIN", "HR"] },
       { href: "/leaves", label: "Leave Management", icon: CalendarDays },
     ],
   },
   {
     section: "Operations",
     items: [
-      { href: "/payroll", label: "Payroll", icon: Wallet, roles: ["ADMIN", "PAYROLL"] },
-      { href: "/settings", label: "Settings", icon: Settings, roles: ["ADMIN", "HR"] },
+      { href: "/payroll", label: "Payroll", icon: Wallet, roles: ["SUPER_ADMIN", "ADMIN", "PAYROLL"] },
+      { href: "/settings", label: "Settings", icon: Settings, roles: ["SUPER_ADMIN", "ADMIN", "HR"] },
       { href: "/users", label: "User Accounts", icon: UserCog, roles: ["SUPER_ADMIN"] },
-      { href: "/audit", label: "Audit Log", icon: ScrollText, roles: ["ADMIN"] },
+      { href: "/audit", label: "Audit Log", icon: ScrollText, roles: ["SUPER_ADMIN", "ADMIN"] },
     ],
   },
 ];
@@ -106,3 +106,4 @@ export default function Sidebar({ role, company }: { role: Role; company: string
     </aside>
   );
 }
+
