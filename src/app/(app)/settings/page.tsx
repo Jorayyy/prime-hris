@@ -31,7 +31,25 @@ export default async function SettingsPage() {
 
       <Card className="mb-6">
         <CardHeader title="Company Profile" subtitle="The company name here customizes the whole system" />
-        <SettingsForm settings={settings} />
+        <SettingsForm
+          settings={
+            settings && {
+              name: settings.name,
+              legalName: settings.legalName,
+              tagline: settings.tagline,
+              address: settings.address,
+              city: settings.city,
+              email: settings.email,
+              phone: settings.phone,
+              website: settings.website,
+              tin: settings.tin,
+              rdoCode: settings.rdoCode,
+              timezone: settings.timezone,
+              payFrequency: settings.payFrequency,
+              graceMinutes: settings.graceMinutes,
+            }
+          }
+        />
       </Card>
 
       <div className="grid gap-6 lg:grid-cols-2">
