@@ -61,13 +61,13 @@ export function Row({
         <form action={tgAction}>
           <input type="hidden" name="id" value={ip.id} />
           <button disabled={tgPending} className="text-xs font-semibold text-[var(--brand)] hover:underline">
-            {tgPending ? "â€¦" : ip.active ? "Disable" : "Enable"}
+        {tgPending ? "..." : ip.active ? "Disable" : "Enable"}
           </button>
         </form>
         <form action={rmAction}>
           <input type="hidden" name="id" value={ip.id} />
           <button disabled={rmPending} title="Remove" className="text-red-500 hover:text-red-700">
-            {rmPending ? "â€¦" : <Trash2 className="h-4 w-4" />}
+          {rmPending ? "..." : <Trash2 className="h-4 w-4" />}
           </button>
         </form>
       </div>

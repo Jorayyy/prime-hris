@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { updateUserAction } from "@/lib/actions/users";
 
@@ -50,13 +50,13 @@ export function UserRow({ u }: { u: UserRowData }) {
               <option value="EMPLOYEE">EMPLOYEE</option>
             </select>
             <button disabled={rolePending} className="text-xs font-semibold text-[var(--brand)] hover:underline">
-              {rolePending ? "Ã¢â‚¬Â¦" : "Set"}
+              {rolePending ? "..." : "Set"}
             </button>
           </form>
         )}
         <Feedback state={roleState} />
       </td>
-      <td className="px-5 py-2.5 text-xs">{u.employee ?? "Ã¢â‚¬â€"}</td>
+      <td className="px-5 py-2.5 text-xs">{u.employee ?? "-"}</td>
       <td className="px-5 py-2.5">
         <div className="flex flex-col gap-1">
           <Badge tone={statusTone(u.isActive ? "ACTIVE" : "INACTIVE")}>{u.isActive ? "Active" : "Disabled"}</Badge>
@@ -84,7 +84,7 @@ export function UserRow({ u }: { u: UserRowData }) {
                 required
               />
               <button disabled={pwPending} className="text-xs font-semibold text-[var(--brand)] hover:underline">
-                {pwPending ? "Ã¢â‚¬Â¦" : "Reset PW"}
+                {pwPending ? "..." : "Reset PW"}
               </button>
             </form>
             <Feedback state={pwState} />
@@ -132,7 +132,7 @@ export function CreateForm({ action, employees }: { action: any; employees: Arra
       <div>
         <label className="label">Link to Employee (optional)</label>
         <select name="employeeId" className="field">
-          <option value="">Ã¢â‚¬â€ None Ã¢â‚¬â€</option>
+        <option value="">-- None --</option>
           {employees.map((e) => (
             <option key={e.id} value={e.id}>
               {e.label}

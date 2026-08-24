@@ -1,4 +1,4 @@
-﻿import { db } from "@/lib/db";
+import { db } from "@/lib/db";
 import { getSessionUser, HR_ROLES } from "@/lib/auth";
 import { Card, CardHeader, EmptyState } from "@/components/ui";
 import { SettingsForm, OrgUnitForm } from "./forms";
@@ -65,7 +65,7 @@ export default async function SettingsPage() {
             <OrgUnitForm kind="POSITION" label="Position" placeholder="e.g., Customer Service Representative" />
           </div>
           <div className="border-t border-[var(--border)] px-5 py-3 text-xs text-[var(--muted)]">
-            {sites.length} sites Â· {departments.length} departments Â· {campaigns.length} campaigns Â· {positions.length} positions
+            {sites.length} sites · {departments.length} departments · {campaigns.length} campaigns · {positions.length} positions
           </div>
         </Card>
 
@@ -75,7 +75,7 @@ export default async function SettingsPage() {
             <OrgUnitForm
               kind="SHIFT_TEMPLATE"
               label="New Shift Template"
-              placeholder="e.g., Graveyard (10PMâ€“7AM)"
+              placeholder="e.g., Graveyard (10PM-7AM)"
               showTimes
             />
             <OrgUnitForm kind="HOLIDAY" label="Declare Holiday" placeholder="e.g., Araw ng Tacloban" showHolidayDate />
@@ -85,7 +85,7 @@ export default async function SettingsPage() {
               <li key={t.id} className="flex justify-between px-5 py-2.5">
                 <span className="font-semibold">{t.name}</span>
                 <span className="font-mono text-xs text-[var(--muted)]">
-                  {t.startTime}â†’{t.endTime} Â· used {t._count.assignments}Ã—
+              <li className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-sm"><span className="font-semibold">{t.name}</span><span className="text-xs text-slate-500">{t.startTime}→{t.endTime} · used {t._count.assignments}×</span></li>
                 </span>
               </li>
             ))}
@@ -96,11 +96,11 @@ export default async function SettingsPage() {
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader
-            title="Bundy Clock â€” Allowed IPs"
+            title="Bundy Clock - Allowed IPs"
             subtitle={
               allowedIps.some((i) => i.active)
                 ? "Punching is RESTRICTED to the active IPs below"
-                : "No active IPs registered â€” punching is open to all addresses"
+                : "No active IPs registered - punching is open to all addresses"
             }
           />
           <AddForm action={addAllowedIpAction} />
@@ -118,7 +118,7 @@ export default async function SettingsPage() {
         </Card>
 
         <Card>
-          <CardHeader title="Government Deduction Tables" subtitle="Seeded with current SSS / PhilHealth / Pag-IBIG / BIR tables â€” update via database when new circulars take effect" />
+        <CardHeader title="Government Deduction Tables" subtitle="Seeded with current SSS / PhilHealth / Pag-IBIG / BIR tables - update via database when new circulars take effect" />
           <GovTablesSummary />
         </Card>
       </div>
@@ -131,7 +131,7 @@ async function GovTablesSummary() {
   if (tables.length === 0) {
     return (
       <p className="px-5 py-4 text-sm text-[var(--muted)]">
-        No tables loaded yet â€” run the seed script.
+        No tables loaded yet - run the seed script.
       </p>
     );
   }
@@ -140,7 +140,7 @@ async function GovTablesSummary() {
       {tables.map((t) => (
         <li key={t.id} className="rounded-lg bg-slate-50 p-3 text-center">
           <p className="text-xs font-bold uppercase tracking-wide">{t.type.replace(/_/g, " ")}</p>
-          <p className="text-[11px] text-slate-500">{t.effectiveYear} Â· {t.frequency}</p>
+          <p className="text-[11px] text-slate-500">{t.effectiveYear} · {t.frequency}</p>
         </li>
       ))}
     </ul>
