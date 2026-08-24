@@ -33,8 +33,14 @@ export default function ManualLogForm({
       <div>
         <label className="label">Punch Type</label>
         <select name="type" className="field" required>
-          <option value="CLOCK_IN">Clock In</option>
-          <option value="CLOCK_OUT">Clock Out</option>
+          <option value="IN">In</option>
+          <option value="FIRST_BREAK_OUT">1st Break Out</option>
+          <option value="FIRST_BREAK_IN">1st Break In</option>
+          <option value="LUNCH_OUT">Lunch Out</option>
+          <option value="LUNCH_IN">Lunch In</option>
+          <option value="SECOND_BREAK_OUT">2nd Break Out</option>
+          <option value="SECOND_BREAK_IN">2nd Break In</option>
+          <option value="OUT">Out</option>
         </select>
       </div>
       <div>

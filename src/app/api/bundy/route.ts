@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
+import type { TimeLogType } from "@prisma/client";
 import { db } from "@/lib/db";
 import { verifyBundyPin } from "@/lib/auth";
 import { resolveWorkDate } from "@/lib/time";
+import { PUNCH_LABELS, PUNCH_TYPES, computeBreakMinutes, expectedNextPunch, validatePunch } from "@/lib/punch";
 
 /**
- * Simple in-memory throttle: max 5 failed attempts per minute per IP.
+ * Simple in-memory throttle: max 5 failed attempts per minute per IP+employee.
+ * Successful punches reset the counter.
  * For multi-instance deployments move this to Redis.
  */
 const attempts = new Map<string, { count: number; resetAt: number }>();
@@ -12,18 +15,27 @@ const attempts = new Map<string, { count: number; resetAt: number }>();
 function throttled(key: string): boolean {
   const now = Date.now();
   const entry = attempts.get(key);
+  return !!entry && entry.resetAt >= now && entry.count >= 5;
+}
+
+function registerFailure(key: string) {
+  const now = Date.now();
+  const entry = attempts.get(key);
   if (!entry || entry.resetAt < now) {
     attempts.set(key, { count: 1, resetAt: now + 60_000 });
-    return false;
+  } else {
+    entry.count++;
   }
-  entry.count++;
-  return entry.count > 5;
+}
+
+function clearFailures(key: string) {
+  attempts.delete(key);
 }
 
 export async function POST(req: NextRequest) {
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "local";
 
-  let body: { employeeNumber?: string; pin?: string };
+  let body: { employeeNumber?: string; pin?: string; type?: string };
   try {
     body = await req.json();
   } catch {
@@ -58,6 +70,7 @@ export async function POST(req: NextRequest) {
     !employee.bundyPinHash ||
     !(await verifyBundyPin(pin, employee.bundyPinHash))
   ) {
+    registerFailure(`${ip}:${employeeNumber}`);
     await db.auditLog.create({
       data: {
         action: "BUNDY_FAIL",
@@ -81,15 +94,22 @@ export async function POST(req: NextRequest) {
     orderBy: { timestamp: "asc" },
   });
 
-  let type: "CLOCK_IN" | "CLOCK_OUT";
-  const lastIn = [...todayLogs].reverse().find((l) => l.type === "CLOCK_IN");
-  const hasOutAfterLastIn =
-    lastIn && todayLogs.some((l) => l.type === "CLOCK_OUT" && l.timestamp > lastIn.timestamp);
+  // Determine punch type: client's explicit choice (validated) or auto-detect
+  clearFailures(`${ip}:${employeeNumber}`);
+  const requestedType = typeof body.type === "string" ? body.type.toUpperCase() : undefined;
 
-  if (!lastIn || hasOutAfterLastIn) {
-    type = "CLOCK_IN";
+  let type: TimeLogType;
+  if (requestedType) {
+    if (!PUNCH_TYPES.includes(requestedType as TimeLogType)) {
+      return NextResponse.json({ ok: false, error: "Unknown punch type." }, { status: 400 });
+    }
+    const verdict = validatePunch(requestedType as TimeLogType, todayLogs);
+    if (!verdict.ok) {
+      return NextResponse.json({ ok: false, error: verdict.error }, { status: 409 });
+    }
+    type = requestedType as TimeLogType;
   } else {
-    type = "CLOCK_OUT";
+    type = expectedNextPunch(todayLogs);
   }
 
   await db.timeLog.create({
@@ -109,12 +129,15 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     ok: true,
     type,
+    nextType: expectedNextPunch([...todayLogs, { type, timestamp: now }]),
     timestamp: now.toISOString(),
     name: `${employee.firstName} ${employee.lastName}`,
     message:
-      type === "CLOCK_IN"
+      type === "IN"
         ? `Good day, ${employee.firstName}! Clock-in recorded.`
-        : `Take care, ${employee.firstName}! Clock-out recorded.`,
+        : type === "OUT"
+          ? `Take care, ${employee.firstName}! Clock-out recorded.`
+          : `${PUNCH_LABELS[type]} recorded. Enjoy your break, ${employee.firstName}!`,
   });
 }
 
@@ -130,8 +153,8 @@ async function updateAttendanceSummary(employeeId: string, workDate: Date, timez
     include: { shiftTemplate: true },
   });
 
-  const clockIns = logs.filter((l) => l.type === "CLOCK_IN");
-  const clockOuts = logs.filter((l) => l.type === "CLOCK_OUT");
+  const clockIns = logs.filter((l) => l.type === "IN");
+  const clockOuts = logs.filter((l) => l.type === "OUT");
 
   const actualIn = clockIns[0]?.timestamp ?? null;
   const actualOut = clockOuts[clockOuts.length - 1]?.timestamp ?? null;
@@ -149,8 +172,11 @@ async function updateAttendanceSummary(employeeId: string, workDate: Date, timez
   }
 
   let workedMinutes = 0;
+  let breakMinutes = 0;
   if (actualIn && actualOut && actualOut > actualIn) {
-    workedMinutes = Math.round((actualOut.getTime() - actualIn.getTime()) / 60000);
+    const spanMinutes = Math.round((actualOut.getTime() - actualIn.getTime()) / 60000);
+    breakMinutes = computeBreakMinutes(logs);
+    workedMinutes = Math.max(0, spanMinutes - breakMinutes);
   }
 
   const isRestDay = assignment?.isRestDay ?? false;
@@ -174,6 +200,7 @@ async function updateAttendanceSummary(employeeId: string, workDate: Date, timez
       actualOut,
       lateMinutes,
       workedMinutes,
+      breakMinutes,
       status,
     },
     update: {
@@ -183,6 +210,7 @@ async function updateAttendanceSummary(employeeId: string, workDate: Date, timez
       actualOut,
       lateMinutes,
       workedMinutes,
+      breakMinutes,
       status,
     },
   });

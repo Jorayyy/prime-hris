@@ -57,8 +57,8 @@ export default async function DashboardPage() {
       : Promise.resolve(0),
   ]);
 
-  const lastIn = myPunches.filter((p) => p.type === "CLOCK_IN").at(-1);
-  const lastOut = myPunches.filter((p) => p.type === "CLOCK_OUT").at(-1);
+  const lastIn = myPunches.filter((p) => p.type === "IN").at(-1);
+  const lastOut = myPunches.filter((p) => p.type === "OUT").at(-1);
 
   // Org-wide stats for management
   const [activeCount, onLeaveToday, presentToday, lateToday] = isManagement

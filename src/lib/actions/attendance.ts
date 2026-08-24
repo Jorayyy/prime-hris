@@ -9,7 +9,16 @@ import { resolveWorkDate } from "@/lib/time";
 
 const manualLogSchema = z.object({
   employeeId: z.string().min(1),
-  type: z.enum(["CLOCK_IN", "CLOCK_OUT"]),
+  type: z.enum([
+    "IN",
+    "FIRST_BREAK_OUT",
+    "FIRST_BREAK_IN",
+    "LUNCH_OUT",
+    "LUNCH_IN",
+    "SECOND_BREAK_OUT",
+    "SECOND_BREAK_IN",
+    "OUT",
+  ]),
   timestamp: z.string().min(1), // datetime-local
 });
 

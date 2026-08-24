@@ -54,10 +54,14 @@ enum Gender {
 }
 
 enum TimeLogType {
-  CLOCK_IN
-  CLOCK_OUT
-  BREAK_START
-  BREAK_END
+  IN
+  FIRST_BREAK_OUT
+  FIRST_BREAK_IN
+  LUNCH_OUT
+  LUNCH_IN
+  SECOND_BREAK_OUT
+  SECOND_BREAK_IN
+  OUT
 }
 
 enum AttendanceStatus {
@@ -397,7 +401,8 @@ model AttendanceDaily {
   lateMinutes     Int              @default(0)
   undertimeMinutes Int             @default(0)
   workedMinutes   Int              @default(0)
-  nightDiffMinutes Int             @default(0)
+  breakMinutes    Int              @default(0)
+  nightDiffMinutes Int              @default(0)
   overtimeMinutes Int              @default(0)
   status          AttendanceStatus @default(INCOMPLETE)
 

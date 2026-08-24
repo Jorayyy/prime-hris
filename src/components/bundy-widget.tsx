@@ -2,16 +2,28 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { LogIn, LogOut, LoaderCircle } from "lucide-react";
+import { LogIn, LoaderCircle } from "lucide-react";
 
 type BundyResult = {
   ok: boolean;
   error?: string;
-  type?: "CLOCK_IN" | "CLOCK_OUT";
+  type?: string;
+  nextType?: string;
   name?: string;
   timestamp?: string;
   message?: string;
 };
+
+const PUNCH_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: "IN", label: "In" },
+  { value: "FIRST_BREAK_OUT", label: "1st Break Out" },
+  { value: "FIRST_BREAK_IN", label: "1st Break In" },
+  { value: "LUNCH_OUT", label: "Lunch Out" },
+  { value: "LUNCH_IN", label: "Lunch In" },
+  { value: "SECOND_BREAK_OUT", label: "2nd Break Out" },
+  { value: "SECOND_BREAK_IN", label: "2nd Break In" },
+  { value: "OUT", label: "Out" },
+];
 
 function useClock() {
   const [now, setNow] = useState<Date | null>(null);
@@ -32,6 +44,7 @@ export default function BundyWidget({ company }: { company: string }) {
   const now = useClock();
   const [employeeNumber, setEmployeeNumber] = useState("");
   const [pin, setPin] = useState("");
+  const [punchType, setPunchType] = useState("IN");
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<BundyResult | null>(null);
 
@@ -43,13 +56,14 @@ export default function BundyWidget({ company }: { company: string }) {
       const res = await fetch("/api/bundy", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ employeeNumber, pin }),
+        body: JSON.stringify({ employeeNumber, pin, type: punchType }),
       });
       const data: BundyResult = await res.json();
       setResult(data);
       if (data.ok) {
         setEmployeeNumber("");
         setPin("");
+        if (data.nextType) setPunchType(data.nextType);
         setTimeout(() => setResult(null), 8000);
       }
     } catch {
@@ -111,6 +125,24 @@ export default function BundyWidget({ company }: { company: string }) {
           />
         </div>
 
+        <div>
+          <label htmlFor="bundy-type" className="label">
+            Punch Type
+          </label>
+          <select
+            id="bundy-type"
+            className="field text-center font-semibold"
+            value={punchType}
+            onChange={(e) => setPunchType(e.target.value)}
+          >
+            {PUNCH_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
         <button
           type="submit"
           disabled={busy || !employeeNumber || pin.length < 4}
@@ -121,24 +153,13 @@ export default function BundyWidget({ company }: { company: string }) {
           ) : (
             <LogIn className="h-4 w-4" />
           )}
-          CLOCK IN / OUT
+          PUNCH — {PUNCH_OPTIONS.find((o) => o.value === punchType)?.label.toUpperCase()}
         </button>
       </form>
 
       {result ? (
         result.ok ? (
-          <div
-            className={`mt-4 rounded-lg px-4 py-3 text-sm font-semibold ${
-              result.type === "CLOCK_IN"
-                ? "bg-emerald-50 text-emerald-700"
-                : "bg-blue-50 text-blue-700"
-            }`}
-          >
-            {result.type === "CLOCK_IN" ? (
-              <LogIn className="mr-2 inline h-4 w-4" />
-            ) : (
-              <LogOut className="mr-2 inline h-4 w-4" />
-            )}
+          <div className="mt-4 rounded-lg bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
             {result.message}
           </div>
         ) : (
