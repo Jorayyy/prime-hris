@@ -32,7 +32,9 @@ export default async function MySpacePage() {
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
 
-  const [dtr, payslips] = await Promise.all([
+  const yearStart = new Date(now.getFullYear(), 0, 1);
+
+  const [dtr, payslips, ytdAgg, balances] = await Promise.all([
     db.attendanceDaily.findMany({
       where: { employeeId: me.id, workDate: { gte: monthStart, lt: nextMonth } },
       orderBy: { workDate: "desc" },
@@ -42,6 +44,18 @@ export default async function MySpacePage() {
       orderBy: { createdAt: "desc" },
       take: 6,
       include: { payPeriod: true },
+    }),
+    db.payslip.aggregate({
+      where: {
+        employeeId: me.id,
+        payPeriod: { status: { in: ["APPROVED", "PAID"] }, startDate: { gte: yearStart } },
+      },
+      _sum: { grossPay: true, netPay: true, basicPay: true },
+    }),
+    db.leaveBalance.findMany({
+      where: { employeeId: me.id, year: now.getFullYear() },
+      include: { leaveType: true },
+      orderBy: { leaveType: { code: "asc" } },
     }),
   ]);
 
@@ -126,7 +140,10 @@ export default async function MySpacePage() {
         </Card>
 
         <Card>
-          <CardHeader title="My Payslips" subtitle="Latest approved payroll releases" />
+          <CardHeader
+            title="My Payslips"
+            subtitle={`YTD: ${formatCurrency(ytdAgg._sum.grossPay ?? 0)} gross · ${formatCurrency(ytdAgg._sum.netPay ?? 0)} net`}
+          />
           {payslips.length === 0 ? (
             <EmptyState title="No payslips yet" hint="Released payslips appear here after payroll approval." />
           ) : (
@@ -138,7 +155,7 @@ export default async function MySpacePage() {
                       <p className="text-sm font-semibold">
                         {formatDate(ps.payPeriod.startDate)} – {formatDate(ps.payPeriod.endDate)}
                       </p>
-                      <p className="text-xs text-[var(--muted)]">{Number(ps.daysWorked)}d · paid via HRIS</p>
+                      <p className="text-xs text-[var(--muted)]">{Number(ps.daysWorked)}d · basic {formatCurrency(ps.basicPay)}</p>
                     </div>
                     <span className="text-sm font-bold tabular-nums">{formatCurrency(ps.netPay)}</span>
                   </Link>
@@ -148,6 +165,30 @@ export default async function MySpacePage() {
           )}
         </Card>
       </div>
+
+      <Card className="mt-6">
+        <CardHeader title="My Leave Credits" subtitle={`As of ${formatDateOnly(now)} · ${now.getFullYear()}`} />
+        {balances.length === 0 ? (
+          <EmptyState title="No credits yet" hint="Leave credits appear once HR configures them for you." />
+        ) : (
+          <div className="grid grid-cols-2 gap-3 px-5 py-4 sm:grid-cols-4 lg:grid-cols-6">
+            {balances.map((b) => {
+              const total = Number(b.entitlement) + Number(b.carriedOver);
+              const remaining = total - Number(b.used) - Number(b.pending);
+              return (
+                <div key={b.id} className="rounded-xl border border-[var(--border)] p-3 text-center">
+                  <p className="text-xs font-bold text-[var(--muted)]">{b.leaveType.code}</p>
+                  <p className="text-xl font-bold tabular-nums">{remaining}</p>
+                  <p className="text-[10px] text-[var(--muted)]">
+                    of {total}
+                    {Number(b.pending) > 0 ? ` · ${Number(b.pending)} pending` : ""}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </Card>
 
       <Card className="mt-6">
         <CardHeader title="My Government Numbers" />
