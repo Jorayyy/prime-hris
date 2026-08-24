@@ -4,6 +4,7 @@ import { Card, CardHeader, EmptyState } from "@/components/ui";
 import { SettingsForm, OrgUnitForm } from "./forms";
 import { AddForm, Row as IpRow } from "./ip-forms";
 import { addAllowedIpAction, removeAllowedIpAction, toggleAllowedIpAction } from "@/lib/actions/ips";
+import ShiftTemplateEditor from "./shift-template-editor";
 
 export const metadata = { title: "Settings" };
 
@@ -80,16 +81,7 @@ export default async function SettingsPage() {
             />
             <OrgUnitForm kind="HOLIDAY" label="Declare Holiday" placeholder="e.g., Araw ng Tacloban" showHolidayDate />
           </div>
-          <ul className="divide-y divide-[var(--border)] border-t border-[var(--border)] text-sm">
-            {templates.map((t) => (
-              <li key={t.id} className="flex justify-between px-5 py-2.5">
-                <span className="font-semibold">{t.name}</span>
-                <span className="font-mono text-xs text-[var(--muted)]">
-                  {t.startTime} → {t.endTime} · used {t._count.assignments}×
-                </span>
-              </li>
-            ))}
-          </ul>
+          <ShiftTemplateEditor templates={templates} />
         </Card>
       </div>
 

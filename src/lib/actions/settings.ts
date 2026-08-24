@@ -118,3 +118,78 @@ export async function createOrgUnitAction(_prev: { error?: string }, formData: F
   revalidatePath("/schedules");
   return {};
 }
+
+const updateShiftTemplateSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1).max(100),
+  startTime: z.string().regex(/^\d{2}:\d{2}$/),
+  endTime: z.string().regex(/^\d{2}:\d{2}$/),
+  breakMinutes: z.coerce.number().int().min(0).max(180),
+  graceMinutes: z.coerce.number().int().min(0).max(60),
+  color: z.string().optional(),
+});
+
+export async function updateShiftTemplateAction(_prev: { error?: string; ok?: boolean }, formData: FormData) {
+  try {
+    await requireRole("ADMIN", "HR");
+  } catch {
+    throw new ForbiddenError();
+  }
+
+  const parsed = updateShiftTemplateSchema.safeParse({
+    id: String(formData.get("id") ?? ""),
+    name: String(formData.get("name") ?? "").trim(),
+    startTime: String(formData.get("startTime") ?? ""),
+    endTime: String(formData.get("endTime") ?? ""),
+    breakMinutes: Number(formData.get("breakMinutes") ?? 60),
+    graceMinutes: Number(formData.get("graceMinutes") ?? 5),
+    color: String(formData.get("color") ?? "") || undefined,
+  });
+  if (!parsed.success) return { error: "Check the template fields." };
+
+  const sh = parseInt(parsed.data.startTime.slice(0, 2), 10);
+  const eh = parseInt(parsed.data.endTime.slice(0, 2), 10);
+
+  try {
+    await db.shiftTemplate.update({
+      where: { id: parsed.data.id },
+      data: {
+        name: parsed.data.name,
+        startTime: parsed.data.startTime,
+        endTime: parsed.data.endTime,
+        breakMinutes: parsed.data.breakMinutes,
+        graceMinutes: parsed.data.graceMinutes,
+        isNightShift: eh <= sh,
+        ...(parsed.data.color ? { color: parsed.data.color } : {}),
+      },
+    });
+  } catch {
+    return { error: "Template not found or name already exists." };
+  }
+
+  await recordAudit({ action: "UPDATE_SHIFT_TEMPLATE", entity: "ShiftTemplate", details: { id: parsed.data.id, name: parsed.data.name } });
+  revalidatePath("/settings");
+  revalidatePath("/schedules");
+  return { ok: true };
+}
+
+export async function deleteShiftTemplateAction(id: string) {
+  try {
+    await requireRole("ADMIN", "HR");
+  } catch {
+    throw new ForbiddenError();
+  }
+
+  const template = await db.shiftTemplate.findUnique({ where: { id }, include: { _count: { select: { assignments: true } } } });
+  if (!template) return { error: "Template not found." };
+
+  if (template._count.assignments > 0) {
+    return { error: `Cannot delete — ${template._count.assignments} assignment(s) use this template. Reassign them first.` };
+  }
+
+  await db.shiftTemplate.delete({ where: { id } });
+  await recordAudit({ action: "DELETE_SHIFT_TEMPLATE", entity: "ShiftTemplate", details: { id, name: template.name } });
+  revalidatePath("/settings");
+  revalidatePath("/schedules");
+  return { ok: true };
+}

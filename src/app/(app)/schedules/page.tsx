@@ -3,6 +3,8 @@ import { getSessionUser } from "@/lib/auth";
 import { Card, CardHeader, EmptyState } from "@/components/ui";
 import { nightDiffMinutesForShift } from "@/lib/time";
 import ScheduleForm from "./schedule-form";
+import RotationScheduleForm from "./rotation-form";
+import ScheduleCalendarWrapper from "./schedule-calendar-wrapper";
 
 export const metadata = { title: "Schedules" };
 
@@ -12,12 +14,25 @@ export default async function SchedulesPage() {
     return <EmptyState title="Not authorized" hint="Schedules are managed by HR." />;
   }
 
-  const [templates, employees] = await Promise.all([
+  const [templates, employees, assignments] = await Promise.all([
     db.shiftTemplate.findMany({ where: { isActive: true }, orderBy: { startTime: "asc" } }),
     db.employee.findMany({
       where: { status: "ACTIVE" },
       select: { id: true, firstName: true, lastName: true, employeeNumber: true, campaign: { select: { name: true } } },
       orderBy: [{ campaign: { name: "asc" } }, { lastName: "asc" }],
+    }),
+    db.shiftAssignment.findMany({
+      where: {
+        date: {
+          gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
+          lte: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0),
+        },
+      },
+      include: {
+        employee: { select: { firstName: true, lastName: true, employeeNumber: true } },
+        shiftTemplate: { select: { id: true, name: true, startTime: true, endTime: true, color: true } },
+      },
+      orderBy: { date: "asc" },
     }),
   ]);
 
@@ -30,7 +45,7 @@ export default async function SchedulesPage() {
       <div className="mb-6">
         <h1 className="text-xl font-bold tracking-tight">Shift Schedules</h1>
         <p className="mt-1 text-sm text-[var(--muted)]">
-          Templates and bulk assignment for BPO shifts — graveyard shifts automatically earn night differential.
+          Templates, bulk assignment, rotation patterns, and calendar views for BPO shifts.
         </p>
       </div>
 
@@ -56,17 +71,53 @@ export default async function SchedulesPage() {
           );
         })}
         {templates.length === 0 ? (
-          <EmptyState title="No shift templates" hint="Run the seed script or create templates in the database." />
+          <EmptyState title="No shift templates" hint="Run the seed script or create templates in Settings." />
         ) : null}
       </div>
 
-      <Card>
-        <CardHeader
-          title="Bulk Assignment"
-          subtitle="Assign a template (or rest day) to employees over a date range. Existing assignments are overwritten."
+      <div className="mb-6">
+        <ScheduleCalendarWrapper
+          assignments={assignments.map((a) => ({
+            id: a.id,
+            date: a.date.toISOString().slice(0, 10),
+            employeeId: a.employeeId,
+            employee: a.employee,
+            shiftTemplate: a.shiftTemplate,
+            customStart: a.customStart,
+            customEnd: a.customEnd,
+            isRestDay: a.isRestDay,
+          }))}
+          employees={employees}
         />
-        <ScheduleForm templates={templates.map((t) => ({ id: t.id, name: t.name }))} employees={employees} defaultStart={today.toISOString().slice(0, 10)} defaultEnd={weekLater.toISOString().slice(0, 10)} />
-      </Card>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card>
+          <CardHeader
+            title="Bulk Assignment"
+            subtitle="Assign a template (or rest day) to employees over a date range."
+          />
+          <ScheduleForm
+            templates={templates.map((t) => ({ id: t.id, name: t.name }))}
+            employees={employees}
+            defaultStart={today.toISOString().slice(0, 10)}
+            defaultEnd={weekLater.toISOString().slice(0, 10)}
+          />
+        </Card>
+
+        <Card>
+          <CardHeader
+            title="Rotation Schedule"
+            subtitle="Set up weekly or custom repeating patterns for employees."
+          />
+          <RotationScheduleForm
+            templates={templates}
+            employees={employees}
+            defaultStart={today.toISOString().slice(0, 10)}
+            defaultEnd={weekLater.toISOString().slice(0, 10)}
+          />
+        </Card>
+      </div>
     </>
   );
 }
