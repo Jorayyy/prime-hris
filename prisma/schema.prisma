@@ -1,0 +1,581 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==============================
+// ENUMS
+// ==============================
+
+enum Role {
+  ADMIN
+  HR
+  PAYROLL
+  MANAGER
+  EMPLOYEE
+}
+
+enum EmploymentType {
+  PROBITIONARY
+  REGULAR
+  CONTRACTUAL
+  SEASONAL
+  PART_TIME
+  INTERN
+}
+
+enum EmployeeStatus {
+  ACTIVE
+  ON_LEAVE
+  SUSPENDED
+  RESIGNED
+  TERMINATED
+  END_OF_CONTRACT
+  AWOL
+}
+
+enum CivilStatus {
+  SINGLE
+  MARRIED
+  WIDOWED
+  SEPARATED
+  ANNULLED
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  NON_BINARY
+  PREFER_NOT_TO_SAY
+}
+
+enum TimeLogType {
+  CLOCK_IN
+  CLOCK_OUT
+  BREAK_START
+  BREAK_END
+}
+
+enum AttendanceStatus {
+  PRESENT
+  LATE
+  ABSENT
+  ON_LEAVE
+  REST_DAY
+  HOLIDAY
+  INCOMPLETE
+}
+
+enum RequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum HolidayType {
+  REGULAR
+  SPECIAL_NON_WORKING
+  SPECIAL_HOLIDAY
+  DOUBLE_HOLIDAY
+}
+
+enum PayFrequency {
+  WEEKLY
+  BIWEEKLY
+  SEMI_MONTHLY
+  MONTHLY
+}
+
+enum PayPeriodStatus {
+  DRAFT
+  PROCESSING
+  FOR_APPROVAL
+  APPROVED
+  PAID
+  CANCELLED
+}
+
+enum AdjustmentType {
+  EARNING
+  DEDUCTION
+}
+
+enum GovIdType {
+  SSS
+  PHILHEALTH
+  PAGIBIG
+  WITHHOLDING_TAX
+}
+
+// ==============================
+// AUTH & SESSIONS
+// ==============================
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String
+  role         Role      @default(EMPLOYEE)
+  isActive     Boolean   @default(true)
+  lastLoginAt  DateTime?
+  employee     Employee?
+  sessions     Session[]
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([role])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userAgent String?
+  ip        String?
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+// ==============================
+// COMPANY SETTINGS (singleton)
+// ==============================
+
+model CompanySettings {
+  id             String       @id @default(cuid())
+  name           String       @default("HRIS Company")
+  legalName      String?
+  tagline        String?
+  logoUrl        String?
+  primaryColor   String       @default("#1e40af")
+  address        String?
+  city           String?
+  email          String?
+  phone          String?
+  website        String?
+  tin            String?
+  rdoCode        String?
+  timezone       String       @default("Asia/Manila")
+  payFrequency   PayFrequency @default(SEMI_MONTHLY)
+  workingDays    String       @default("Mon,Tue,Wed,Thu,Fri,Sat")
+  nightDiffStart Int          @default(22) // 10 PM
+  nightDiffEnd   Int          @default(6) // 6 AM
+  nightDiffRate  Decimal      @default(0.10) @db.Decimal(5, 4) // 10% premium
+  graceMinutes   Int          @default(5)
+  updatedAt      DateTime     @updatedAt
+}
+
+// ==============================
+// ORG STRUCTURE
+// ==============================
+
+model Site {
+  id        String      @id @default(cuid())
+  name      String      @unique
+  address   String?
+  isActive  Boolean     @default(true)
+  employees Employee[]
+}
+
+model Department {
+  id        String     @id @default(cuid())
+  name      String     @unique
+  isActive  Boolean    @default(true)
+  employees Employee[]
+}
+
+model Campaign {
+  id         String     @id @default(cuid())
+  name       String     @unique
+  clientName String?
+  startDate  DateTime?
+  endDate    DateTime?
+  headcount  Int?
+  isActive   Boolean    @default(true)
+  employees  Employee[]
+}
+
+model Position {
+  id        String     @id @default(cuid())
+  title     String     @unique
+  level     Int? // e.g., 1=agent, 2=senior, 3=lead, 4=smanager...
+  employees Employee[]
+}
+
+// ==============================
+// EMPLOYEE 201 RECORDS
+// ==============================
+
+model Employee {
+  id              String         @id @default(cuid())
+  employeeNumber  String         @unique
+  userId          String?        @unique
+  user            User?          @relation(fields: [userId], references: [id])
+
+  // Personal info
+  firstName       String
+  middleName      String?
+  lastName        String
+  suffix          String?
+  dateOfBirth     DateTime?
+  gender          Gender?
+  civilStatus     CivilStatus?
+  nationality     String         @default("Filipino")
+  mobileNumber    String?
+  personalEmail   String?
+  presentAddress  String?
+  permanentAddress String?
+
+  // Emergency contact
+  emergencyName    String?
+  emergencyRelation String?
+  emergencyPhone   String?
+
+  // Government IDs
+  sssNumber       String?
+  philhealthNumber String?
+  pagibigNumber   String?
+  tinNumber       String?
+
+  // Employment
+  hireDate         DateTime       @default(now())
+  regularizedDate  DateTime?
+  employmentType   EmploymentType @default(PROBITIONARY)
+  status           EmployeeStatus @default(ACTIVE)
+  separationDate   DateTime?
+  separationReason String?
+  basicSalary      Decimal        @default(0) @db.Decimal(12, 2) // monthly rate
+  dailyRate        Decimal        @default(0) @db.Decimal(12, 2)
+
+  // Org assignment
+  siteId       String?
+  site         Site?      @relation(fields: [siteId], references: [id])
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id])
+  campaignId   String?
+  campaign     Campaign?  @relation(fields: [campaignId], references: [id])
+  positionId   String?
+  position     Position?  @relation(fields: [positionId], references: [id])
+  reportsToId  String?
+  reportsTo    Employee?  @relation("ReportingChain", fields: [reportsToId], references: [id])
+  directReports Employee[] @relation("ReportingChain")
+
+  photoUrl String?
+
+  // Web bundy (kiosk clock-in) credentials
+  bundyPinHash   String?
+  bundyPinSetAt  DateTime?
+
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  employmentHistory EmploymentHistoryEntry[]
+  attendanceLogs   TimeLog[]
+  attendanceDaily  AttendanceDaily[]
+  shiftAssignments ShiftAssignment[]
+  overtimeRequests OvertimeRequest[]
+  leaveBalances    LeaveBalance[]
+  leaveRequests    LeaveRequest[]
+  payslips         Payslip[]
+  salaryHistory    SalaryHistoryEntry[]
+
+  @@index([status])
+  @@index([lastName, firstName])
+  @@index([campaignId])
+  @@index([departmentId])
+  @@index([siteId])
+}
+
+model EmploymentHistoryEntry {
+  id          String   @id @default(cuid())
+  employeeId  String
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  type        String // PROMOTION, TRANSFER, SALARY_ADJUSTMENT, STATUS_CHANGE, CAMPAIGN_MOVE
+  description String
+  effectiveAt DateTime
+  createdAt   DateTime @default(now())
+
+  @@index([employeeId])
+}
+
+model SalaryHistoryEntry {
+  id         String   @id @default(cuid())
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  previous   Decimal  @db.Decimal(12, 2)
+  newRate    Decimal  @db.Decimal(12, 2)
+  reason     String?
+  effectiveAt DateTime
+  createdAt  DateTime @default(now())
+
+  @@index([employeeId])
+}
+
+model EmployeeDocument {
+  id         String   @id @default(cuid())
+  employeeId String
+  name       String // e.g., "NBI Clearance", "Birth Certificate"
+  fileUrl    String
+  uploadedAt DateTime @default(now())
+  expiresAt  DateTime?
+
+  @@index([employeeId])
+}
+
+// ==============================
+// SCHEDULES & SHIFTS
+// ==============================
+
+model ShiftTemplate {
+  id           String   @id @default(cuid())
+  name         String   @unique // "Morning (8AM-5PM)", "Graveyard (10PM-7AM)"
+  startTime    String // "HH:MM"
+  endTime      String // "HH:MM" — may cross midnight
+  breakMinutes Int      @default(60)
+  graceMinutes Int      @default(5)
+  isNightShift Boolean  @default(false)
+  color        String   @default("#3b82f6")
+  assignments  ShiftAssignment[]
+  isActive     Boolean  @default(true)
+}
+
+model ShiftAssignment {
+  id             String        @id @default(cuid())
+  employeeId     String
+  employee       Employee      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  shiftTemplateId String?
+  shiftTemplate  ShiftTemplate? @relation(fields: [shiftTemplateId], references: [id])
+  date           DateTime @db.Date
+  customStart    String? // override times if no template
+  customEnd      String?
+  isRestDay      Boolean @default(false)
+  notes          String?
+  createdAt      DateTime @default(now())
+
+  @@unique([employeeId, date])
+  @@index([date])
+  @@index([employeeId, date])
+}
+
+// ==============================
+// TIME & ATTENDANCE
+// ==============================
+
+model TimeLog {
+  id         String      @id @default(cuid())
+  employeeId String
+  employee   Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  type       TimeLogType
+  timestamp  DateTime
+  workDate   DateTime    @db.Date // the shift date this punch belongs to
+  source     String      @default("WEB") // WEB | MANUAL | IMPORT
+  ip         String?
+  userAgent  String?
+  note       String?
+
+  @@index([employeeId, workDate])
+  @@index([workDate])
+}
+
+model AttendanceDaily {
+  id              String           @id @default(cuid())
+  employeeId      String
+  employee        Employee         @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  workDate        DateTime         @db.Date
+  scheduledStart  String?
+  scheduledEnd    String?
+  actualIn        DateTime?
+  actualOut       DateTime?
+  lateMinutes     Int              @default(0)
+  undertimeMinutes Int             @default(0)
+  workedMinutes   Int              @default(0)
+  nightDiffMinutes Int             @default(0)
+  overtimeMinutes Int              @default(0)
+  status          AttendanceStatus @default(INCOMPLETE)
+
+  @@unique([employeeId, workDate])
+  @@index([workDate])
+}
+
+model OvertimeRequest {
+  id            String        @id @default(cuid())
+  employeeId    String
+  employee      Employee      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  workDate      DateTime      @db.Date
+  requestedHours Decimal      @db.Decimal(5, 2)
+  approvedHours Decimal?      @db.Decimal(5, 2)
+  reason        String
+  status        RequestStatus @default(PENDING)
+  approverId    String?
+  decidedAt     DateTime?
+  remarks       String?
+  createdAt     DateTime      @default(now())
+
+  @@index([employeeId, status])
+}
+
+// ==============================
+// HOLIDAYS & LEAVE
+// ==============================
+
+model Holiday {
+  id   String      @id @default(cuid())
+  date DateTime    @unique @db.Date
+  name String
+  type HolidayType @default(REGULAR)
+}
+
+model LeaveType {
+  id          String  @id @default(cuid())
+  code        String  @unique // VL, SL, EL, SPL, ML, PL, BL
+  name        String
+  paid        Boolean @default(true)
+  annualQuota Decimal @default(15) @db.Decimal(5, 2) // days per year
+  carryOver   Boolean @default(true)
+  requiresMedicalCert Boolean @default(false)
+  isActive    Boolean @default(true)
+  balances    LeaveBalance[]
+  requests    LeaveRequest[]
+}
+
+model LeaveBalance {
+  id           String    @id @default(cuid())
+  employeeId   String
+  employee     Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  leaveTypeId  String
+  leaveType    LeaveType @relation(fields: [leaveTypeId], references: [id])
+  year         Int
+  entitlement  Decimal   @default(0) @db.Decimal(6, 2)
+  carriedOver  Decimal   @default(0) @db.Decimal(6, 2)
+  used         Decimal   @default(0) @db.Decimal(6, 2)
+  pending      Decimal   @default(0) @db.Decimal(6, 2)
+
+  @@unique([employeeId, leaveTypeId, year])
+}
+
+model LeaveRequest {
+  id           String        @id @default(cuid())
+  employeeId   String
+  employee     Employee      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  leaveTypeId  String
+  leaveType    LeaveType     @relation(fields: [leaveTypeId], references: [id])
+  startDate    DateTime      @db.Date
+  endDate      DateTime      @db.Date
+  days         Decimal       @db.Decimal(6, 2)
+  reason       String
+  status       RequestStatus @default(PENDING)
+  approverId   String?
+  decidedAt    DateTime?
+  remarks      String?
+  createdAt    DateTime      @default(now())
+
+  @@index([employeeId, status])
+  @@index([status])
+}
+
+// ==============================
+// PAYROLL
+// ==============================
+
+model PayPeriod {
+  id         String          @id @default(cuid())
+  frequency  PayFrequency
+  startDate  DateTime        @db.Date
+  endDate    DateTime        @db.Date
+  payDate    DateTime        @db.Date
+  status     PayPeriodStatus @default(DRAFT)
+  processedBy String?
+  approvedBy String?
+  processedAt DateTime?
+  payslips   Payslip[]
+  notes      String?
+  createdAt  DateTime        @default(now())
+
+  @@unique([startDate, endDate])
+  @@index([status])
+}
+
+model Payslip {
+  id           String    @id @default(cuid())
+  payPeriodId  String
+  payPeriod    PayPeriod @relation(fields: [payPeriodId], references: [id], onDelete: Cascade)
+  employeeId   String
+  employee     Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  // Computation snapshot
+  monthlyRate      Decimal @db.Decimal(12, 2)
+  dailyRate        Decimal @db.Decimal(12, 2)
+  hourlyRate       Decimal @db.Decimal(12, 2)
+  daysWorked       Decimal @default(0) @db.Decimal(6, 2)
+  basicPay         Decimal @default(0) @db.Decimal(12, 2)
+  nightDiffPay     Decimal @default(0) @db.Decimal(12, 2)
+  overtimePay      Decimal @default(0) @db.Decimal(12, 2)
+  holidayPay       Decimal @default(0) @db.Decimal(12, 2)
+  grossPay         Decimal @default(0) @db.Decimal(12, 2)
+  lateAbsenceDeduction Decimal @default(0) @db.Decimal(12, 2)
+  sssContribution  Decimal @default(0) @db.Decimal(12, 2)
+  philhealthContribution Decimal @default(0) @db.Decimal(12, 2)
+  pagibigContribution    Decimal @default(0) @db.Decimal(12, 2)
+  withholdingTax   Decimal @default(0) @db.Decimal(12, 2)
+  totalDeductions  Decimal @default(0) @db.Decimal(12, 2)
+  netPay           Decimal @default(0) @db.Decimal(12, 2)
+  thirteenthMonthYTD Decimal @default(0) @db.Decimal(12, 2)
+
+  adjustments PayslipAdjustment[]
+
+  createdAt DateTime @default(now())
+
+  @@unique([payPeriodId, employeeId])
+  @@index([employeeId])
+}
+
+model PayslipAdjustment {
+  id        String         @id @default(cuid())
+  payslipId String
+  payslip   Payslip        @relation(fields: [payslipId], references: [id], onDelete: Cascade)
+  type      AdjustmentType
+  label     String // "Rice allowance", "Cash advance", "Incentives"
+  amount    Decimal        @db.Decimal(12, 2)
+  taxable   Boolean        @default(false)
+
+  @@index([payslipId])
+}
+
+model GovContributionTable {
+  id          String    @id @default(cuid())
+  type        GovIdType
+  effectiveYear Int
+  frequency   String    @default("MONTHLY") // MONTHLY | SEMI_MONTHLY for tax tables
+  brackets    Json // [{ min, max?, eeShare?, erShare?, ec?, tax?, base?, excessRate? }]
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+
+  @@unique([type, effectiveYear, frequency])
+}
+
+// ==============================
+// AUDIT LOG
+// ==============================
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  userName  String?
+  action    String // CREATE_EMPLOYEE, APPROVE_LEAVE, PROCESS_PAYROLL...
+  entity    String // table/model affected
+  entityId  String?
+  details   Json?
+  ip        String?
+  createdAt DateTime @default(now())
+
+  @@index([entity, entityId])
+  @@index([createdAt])
+}
