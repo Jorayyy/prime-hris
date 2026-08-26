@@ -6,8 +6,45 @@ import { formatCurrency, formatDate, formatDateOnly, formatTime, minutesToHoursM
 
 export const metadata = { title: "My Space" };
 
+async function loadMySpaceData(employeeId: string) {
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  const yearStart = new Date(now.getFullYear(), 0, 1);
+
+  const [dtr, payslips, ytdAgg, balances] = await Promise.all([
+    db.attendanceDaily.findMany({
+      where: { employeeId, workDate: { gte: monthStart, lt: nextMonth } },
+      orderBy: { workDate: "desc" },
+    }),
+    db.payslip.findMany({
+      where: { employeeId, payPeriod: { status: { in: ["APPROVED", "PAID"] } } },
+      orderBy: { createdAt: "desc" },
+      take: 6,
+      include: { payPeriod: true },
+    }),
+    db.payslip.aggregate({
+      where: {
+        employeeId,
+        payPeriod: { status: { in: ["APPROVED", "PAID"] }, startDate: { gte: yearStart } },
+      },
+      _sum: { grossPay: true, netPay: true, basicPay: true },
+    }),
+    db.leaveBalance.findMany({
+      where: { employeeId, year: now.getFullYear() },
+      include: { leaveType: true },
+      orderBy: { leaveType: { code: "asc" } },
+    }),
+  ]);
+
+  return { dtr, payslips, ytdAgg, balances, now };
+}
+
 export default async function MySpacePage() {
-  const user = (await getSessionUser())!;
+  const user = await getSessionUser();
+  if (!user) {
+    return <EmptyState title="Not authenticated" hint="Please log in to view your space." />;
+  }
   if (!user.employeeId) {
     return (
       <EmptyState
@@ -28,36 +65,15 @@ export default async function MySpacePage() {
   });
   if (!me) return <EmptyState title="Employee record not found" />;
 
-  const now = new Date();
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  let spaceData;
+  try {
+    spaceData = await loadMySpaceData(user.employeeId);
+  } catch (err) {
+    console.error("Failed to load My Space data:", err);
+    spaceData = { dtr: [], payslips: [], ytdAgg: { _sum: { grossPay: null, netPay: null, basicPay: null } }, balances: [], now: new Date() };
+  }
 
-  const yearStart = new Date(now.getFullYear(), 0, 1);
-
-  const [dtr, payslips, ytdAgg, balances] = await Promise.all([
-    db.attendanceDaily.findMany({
-      where: { employeeId: me.id, workDate: { gte: monthStart, lt: nextMonth } },
-      orderBy: { workDate: "desc" },
-    }),
-    db.payslip.findMany({
-      where: { employeeId: me.id, payPeriod: { status: { in: ["APPROVED", "PAID"] } } },
-      orderBy: { createdAt: "desc" },
-      take: 6,
-      include: { payPeriod: true },
-    }),
-    db.payslip.aggregate({
-      where: {
-        employeeId: me.id,
-        payPeriod: { status: { in: ["APPROVED", "PAID"] }, startDate: { gte: yearStart } },
-      },
-      _sum: { grossPay: true, netPay: true, basicPay: true },
-    }),
-    db.leaveBalance.findMany({
-      where: { employeeId: me.id, year: now.getFullYear() },
-      include: { leaveType: true },
-      orderBy: { leaveType: { code: "asc" } },
-    }),
-  ]);
+  const { dtr, payslips, ytdAgg, balances, now } = spaceData;
 
   const totals = dtr.reduce(
     (acc, r) => ({
@@ -142,7 +158,7 @@ export default async function MySpacePage() {
         <Card>
           <CardHeader
             title="My Payslips"
-            subtitle={`YTD: ${formatCurrency(ytdAgg._sum.grossPay ?? 0)} gross · ${formatCurrency(ytdAgg._sum.netPay ?? 0)} net`}
+            subtitle={`YTD: ${formatCurrency(ytdAgg._sum.grossPay)} gross · ${formatCurrency(ytdAgg._sum.netPay)} net`}
           />
           {payslips.length === 0 ? (
             <EmptyState title="No payslips yet" hint="Released payslips appear here after payroll approval." />

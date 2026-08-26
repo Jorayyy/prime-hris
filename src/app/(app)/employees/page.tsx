@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { Plus } from "lucide-react";
 import { db } from "@/lib/db";
 import { getSessionUser, HR_ROLES, MANAGEMENT_ROLES } from "@/lib/auth";
@@ -10,28 +11,15 @@ export const metadata = { title: "Employees" };
 
 const PAGE_SIZE = 20;
 
-export default async function EmployeesPage({
-  searchParams,
-}: {
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
-}) {
-  const user = (await getSessionUser())!;
-  if (!MANAGEMENT_ROLES.includes(user.role)) {
-    return <EmptyState title="Not authorized" hint="You do not have access to employee records." />;
-  }
-
-  const { q = "", page = "1", status = "" } = await searchParams;
-  const pageNum = Math.max(1, parseInt(String(page), 10) || 1);
-  const canEdit = HR_ROLES.includes(user.role);
-
+async function loadEmployees(q: string, status: string, pageNum: number) {
   const where = {
     AND: [
       q
         ? {
             OR: [
-              { firstName: { contains: String(q), mode: "insensitive" as const } },
-              { lastName: { contains: String(q), mode: "insensitive" as const } },
-              { employeeNumber: { contains: String(q), mode: "insensitive" as const } },
+              { firstName: { contains: q, mode: "insensitive" as const } },
+              { lastName: { contains: q, mode: "insensitive" as const } },
+              { employeeNumber: { contains: q, mode: "insensitive" as const } },
             ],
           }
         : {},
@@ -50,6 +38,48 @@ export default async function EmployeesPage({
     db.employee.count({ where }),
   ]);
 
+  return { employees, total };
+}
+
+export default async function EmployeesPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const user = await getSessionUser();
+  if (!user) {
+    return <EmptyState title="Not authenticated" hint="Please log in to view employee records." />;
+  }
+  if (!MANAGEMENT_ROLES.includes(user.role)) {
+    return <EmptyState title="Not authorized" hint="You do not have access to employee records." />;
+  }
+
+  const { q = "", page = "1", status = "" } = await searchParams;
+  const pageNum = Math.max(1, parseInt(String(page), 10) || 1);
+  const canEdit = HR_ROLES.includes(user.role);
+
+  let data: { employees: Array<{
+    id: string;
+    employeeNumber: string;
+    firstName: string;
+    lastName: string;
+    hireDate: Date;
+    basicSalary: unknown;
+    employmentType: string;
+    status: string;
+    position: { title: string } | null;
+    campaign: { name: string } | null;
+    site: { name: string } | null;
+  }>; total: number };
+
+  try {
+    data = await loadEmployees(String(q), String(status), pageNum);
+  } catch (err) {
+    console.error("Failed to load employees:", err);
+    return <EmptyState title="Failed to load employees" hint="Please try again later." />;
+  }
+
+  const { employees, total } = data;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   return (
@@ -67,7 +97,9 @@ export default async function EmployeesPage({
       />
 
       <Card className="mb-4 p-4">
-        <EmployeeSearch initialQuery={String(q)} initialStatus={String(status)} />
+        <Suspense>
+          <EmployeeSearch initialQuery={String(q)} initialStatus={String(status)} />
+        </Suspense>
       </Card>
 
       <Card>
