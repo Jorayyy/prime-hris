@@ -144,12 +144,9 @@ interface CardProps {
 
 export function Card({ children, className, hover = false, glass = false, gradient = false }: CardProps) {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
+    <div
       className={cx(
-        "rounded-xl border bg-white shadow-sm",
+        "rounded-xl border bg-white shadow-sm animate-fade-in",
         hover && "hover-lift cursor-pointer",
         glass && "glass",
         gradient && "gradient-primary text-white",
@@ -158,7 +155,7 @@ export function Card({ children, className, hover = false, glass = false, gradie
       )}
     >
       {children}
-    </motion.div>
+    </div>
   );
 }
 
@@ -349,11 +346,7 @@ interface BadgeProps extends VariantProps<typeof badgeVariants> {
 export function Badge({ variant, tone, size = "md", children, pulse = false }: BadgeProps) {
   const resolvedVariant = variant ?? tone ?? "gray";
   return (
-    <motion.span
-      initial={{ scale: 0.9, opacity: 0 }}
-      animate={{ scale: 1, opacity: 1 }}
-      className={cx(badgeVariants({ variant: resolvedVariant, size }))}
-    >
+    <span className={cx(badgeVariants({ variant: resolvedVariant, size }), "animate-scale-in")}>
       {pulse && (
         <span className="relative flex h-2 w-2 mr-1.5">
           <span className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-75 bg-current" />
@@ -361,7 +354,7 @@ export function Badge({ variant, tone, size = "md", children, pulse = false }: B
         </span>
       )}
       {children}
-    </motion.span>
+    </span>
   );
 }
 
@@ -413,17 +406,12 @@ interface EmptyStateProps {
 
 export function EmptyState({ title, hint, icon, action }: EmptyStateProps) {
   return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ duration: 0.3 }}
-      className="flex flex-col items-center justify-center px-6 py-14 text-center"
-    >
+    <div className="flex flex-col items-center justify-center px-6 py-14 text-center animate-fade-in">
       {icon && <div className="mb-4 text-muted-light">{icon}</div>}
       <p className="text-sm font-semibold text-muted">{title}</p>
       {hint ? <p className="mt-1 max-w-sm text-xs text-muted-light">{hint}</p> : null}
       {action && <div className="mt-4">{action}</div>}
-    </motion.div>
+    </div>
   );
 }
 
@@ -440,12 +428,7 @@ interface PageHeaderProps {
 
 export function PageHeader({ title, subtitle, actions, gradient = false }: PageHeaderProps) {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: -10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
-      className="mb-6 flex flex-wrap items-end justify-between gap-4"
-    >
+    <div className="mb-6 flex flex-wrap items-end justify-between gap-4 animate-fade-in">
       <div>
         <h1 className={cx("text-2xl font-bold tracking-tight", gradient && "gradient-text")}>{title}</h1>
         {subtitle ? (
@@ -453,7 +436,7 @@ export function PageHeader({ title, subtitle, actions, gradient = false }: PageH
         ) : null}
       </div>
       {actions ? <div className="flex items-center gap-2">{actions}</div> : null}
-    </motion.div>
+    </div>
   );
 }
 
