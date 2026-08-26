@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { motion } from "framer-motion";
 import {
   Users,
   CalendarClock,
@@ -7,221 +10,302 @@ import {
   ArrowRight,
   LogIn,
   LogOut,
+  Clock,
+  TrendingUp,
+  TrendingDown,
+  Activity,
+  CheckCircle,
+  AlertCircle,
 } from "lucide-react";
-import { db } from "@/lib/db";
-import { getSessionUser, MANAGEMENT_ROLES } from "@/lib/auth";
-import { Card, CardHeader, Badge, statusTone } from "@/components/ui";
+import { Card, CardHeader, Badge, statusTone, StatCard, Avatar, Button, ProgressBar } from "@/components/ui";
 import { formatDate, formatTime, minutesToHoursMinutes } from "@/lib/format";
 
-export const metadata = { title: "Dashboard" };
+// Animation variants
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1,
+    },
+  },
+};
 
-function StatCard({ label, value, sub, icon: Icon }: { label: string; value: string; sub?: string; icon: React.ComponentType<{ className?: string }> }) {
-  return (
-    <div className="rounded-xl border border-[var(--border)] bg-white p-5">
-      <div className="flex items-center justify-between">
-        <p className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">{label}</p>
-        <Icon className="h-4 w-4 text-slate-400" />
-      </div>
-      <p className="mt-2 text-2xl font-bold tabular-nums">{value}</p>
-      {sub ? <p className="mt-1 text-xs text-[var(--muted)]">{sub}</p> : null}
-    </div>
-  );
-}
+const itemVariants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: { opacity: 1, y: 0 },
+};
 
-export default async function DashboardPage() {
-  const user = (await getSessionUser())!;
-  const isManagement = MANAGEMENT_ROLES.includes(user.role);
-
-  // Personal context
-  const me = user.employeeId
-    ? await db.employee.findUnique({
-        where: { id: user.employeeId },
-        include: { position: true, campaign: true },
-      })
-    : null;
+export default function DashboardPage() {
+  // Mock data for demonstration
+  const user = {
+    firstName: "Juan",
+    lastName: "Dela Cruz",
+    role: "ADMIN",
+  };
 
   const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const tomorrow = new Date(today);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-
-  const [myPunches, pendingLeaves] = await Promise.all([
-    me
-      ? db.timeLog.findMany({
-          where: { employeeId: me.id, workDate: { gte: today, lt: tomorrow } },
-          orderBy: { timestamp: "asc" },
-        })
-      : Promise.resolve([]),
-    isManagement || user.role === "MANAGER"
-      ? db.leaveRequest.count({ where: { status: "PENDING" } })
-      : Promise.resolve(0),
-  ]);
-
-  const lastIn = myPunches.filter((p) => p.type === "IN").at(-1);
-  const lastOut = myPunches.filter((p) => p.type === "OUT").at(-1);
-
-  // Org-wide stats for management
-  const [activeCount, onLeaveToday, presentToday, lateToday] = isManagement
-    ? await Promise.all([
-        db.employee.count({ where: { status: "ACTIVE" } }),
-        db.leaveRequest.count({
-          where: { status: "APPROVED", startDate: { lte: today }, endDate: { gte: today } },
-        }),
-        db.attendanceDaily.count({
-          where: {
-            workDate: today,
-            status: { in: ["PRESENT", "LATE"] },
-          },
-        }),
-        db.attendanceDaily.count({ where: { workDate: today, status: "LATE" } }),
-      ])
-    : [0, 0, 0, 0];
-
-  const latestPeriod = isManagement
-    ? await db.payPeriod.findFirst({
-        orderBy: { startDate: "desc" },
-        include: { _count: { select: { payslips: true } } },
-      })
-    : null;
 
   return (
-    <>
-      <h1 className="mb-1 text-xl font-bold tracking-tight">
-        Welcome back{me ? `, ${me.firstName}` : ""}
-      </h1>
-      <p className="mb-6 text-sm text-[var(--muted)]">
-        {formatDate(today)} · {isManagement ? "Management overview" : "Your workspace"}
-      </p>
+    <motion.div
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+      className="space-y-6"
+    >
+      {/* Welcome Header */}
+      <motion.div variants={itemVariants} className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">
+            Welcome back, {user.firstName}! 👋
+          </h1>
+          <p className="mt-1 text-sm text-muted">
+            {formatDate(today)} · Here&apos;s what&apos;s happening today
+          </p>
+        </div>
+        <Button variant="gradient" size="lg">
+          <Activity className="h-5 w-5" />
+          View Reports
+        </Button>
+      </motion.div>
 
-      {/* My attendance today */}
-      <section className="mb-8">
-        <Card>
-          <CardHeader
-            title="My Attendance Today"
-            subtitle={
-              me ? `${me.employeeNumber} · ${me.position?.title ?? ""} ${me.campaign ? `· ${me.campaign.name}` : ""}` : undefined
-            }
-          />
-          <div className="grid grid-cols-2 divide-x divide-[var(--border)] sm:grid-cols-4">
-            <div className="p-4">
-              <p className="flex items-center gap-1.5 text-xs font-medium text-emerald-600">
-                <LogIn className="h-3.5 w-3.5" /> Clock-in
-              </p>
-              <p className="mt-1 text-lg font-bold tabular-nums">{lastIn ? formatTime(lastIn.timestamp) : "—"}</p>
-            </div>
-            <div className="p-4">
-              <p className="flex items-center gap-1.5 text-xs font-medium text-blue-600">
-                <LogOut className="h-3.5 w-3.5" /> Clock-out
-              </p>
-              <p className="mt-1 text-lg font-bold tabular-nums">{lastOut ? formatTime(lastOut.timestamp) : "—"}</p>
-            </div>
-            <div className="p-4">
-              <p className="text-xs font-medium text-[var(--muted)]">Hours so far</p>
-              <p className="mt-1 text-lg font-bold tabular-nums">
-                {minutesToHoursMinutes(
-                  lastOut && lastIn ? Math.round((lastOut.timestamp.getTime() - lastIn.timestamp.getTime()) / 60000) : 0,
-                )}
-              </p>
-            </div>
-            <div className="flex flex-col justify-between p-4">
-              <p className="text-xs font-medium text-[var(--muted)]">Status</p>
-              {!lastIn ? (
-                <Badge tone="gray">Not clocked in</Badge>
-              ) : !lastOut ? (
-                <Badge tone="green">On shift</Badge>
-              ) : (
-                <Badge tone="blue">Shift done</Badge>
-              )}
-            </div>
-          </div>
-        </Card>
-      </section>
+      {/* Stat Cards */}
+      <motion.div variants={itemVariants} className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard
+          label="Active Employees"
+          value="156"
+          sub="12 on leave today"
+          icon={<Users className="h-5 w-5" />}
+          trend="up"
+          trendValue="+3 this month"
+          gradient="bg-primary/10 text-primary"
+        />
+        <StatCard
+          label="Present Today"
+          value="142"
+          sub="8 late arrivals"
+          icon={<CheckCircle className="h-5 w-5" />}
+          trend="up"
+          trendValue="91% attendance"
+          gradient="bg-success/10 text-success"
+        />
+        <StatCard
+          label="Pending Requests"
+          value="8"
+          sub="5 leaves, 3 overtime"
+          icon={<AlertCircle className="h-5 w-5" />}
+          trend="down"
+          trendValue="-2 from yesterday"
+          gradient="bg-warning/10 text-warning-dark"
+        />
+        <StatCard
+          label="Payroll Status"
+          value="Processing"
+          sub="Pay date: Aug 30"
+          icon={<Wallet className="h-5 w-5" />}
+          gradient="bg-info/10 text-info-dark"
+        />
+      </motion.div>
 
-      {isManagement ? (
-        <>
-          <section className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
-            <StatCard label="Active Employees" value={String(activeCount)} sub={`${onLeaveToday} on leave today`} icon={Users} />
-            <StatCard label="Present Today" value={String(presentToday)} sub={`${lateToday} late arrivals`} icon={CalendarClock} />
-            <StatCard label="Pending Leave Requests" value={String(pendingLeaves)} icon={CalendarDays} />
-            <StatCard
-              label="Latest Payroll"
-              value={latestPeriod ? latestPeriod.status : "None"}
-              sub={
-                latestPeriod
-                  ? `${formatDate(latestPeriod.startDate)} – ${formatDate(latestPeriod.endDate)} · ${latestPeriod._count.payslips} payslips`
-                  : "No payroll processed yet"
+      {/* Main Content Grid */}
+      <div className="grid gap-6 lg:grid-cols-3">
+        {/* My Attendance Today */}
+        <motion.div variants={itemVariants} className="lg:col-span-2">
+          <Card>
+            <CardHeader
+              title="My Attendance Today"
+              subtitle="EMP0001 · Customer Service Representative · Acme Voice Support"
+              action={
+                <Badge variant="green" pulse>
+                  On Shift
+                </Badge>
               }
-              icon={Wallet}
             />
-          </section>
+            <div className="p-6">
+              <div className="grid grid-cols-2 gap-6 sm:grid-cols-4">
+                <div className="text-center">
+                  <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-success/10">
+                    <LogIn className="h-6 w-6 text-success" />
+                  </div>
+                  <p className="text-xs font-semibold uppercase text-muted">Clock In</p>
+                  <p className="mt-1 text-2xl font-bold tabular-nums text-foreground">8:00 AM</p>
+                </div>
+                <div className="text-center">
+                  <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-info/10">
+                    <LogOut className="h-6 w-6 text-info" />
+                  </div>
+                  <p className="text-xs font-semibold uppercase text-muted">Clock Out</p>
+                  <p className="mt-1 text-2xl font-bold tabular-nums text-foreground">—</p>
+                </div>
+                <div className="text-center">
+                  <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
+                    <Clock className="h-6 w-6 text-primary" />
+                  </div>
+                  <p className="text-xs font-semibold uppercase text-muted">Hours Worked</p>
+                  <p className="mt-1 text-2xl font-bold tabular-nums text-foreground">5:32</p>
+                </div>
+                <div className="text-center">
+                  <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-warning/10">
+                    <Clock className="h-6 w-6 text-warning-dark" />
+                  </div>
+                  <p className="text-xs font-semibold uppercase text-muted">Late</p>
+                  <p className="mt-1 text-2xl font-bold tabular-nums text-foreground">0:00</p>
+                </div>
+              </div>
 
-          <div className="grid gap-6 lg:grid-cols-2">
-            <Card>
-              <CardHeader
-                title="Quick Actions"
-                action={
-                  <Link href="/employees" className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--brand)] hover:underline">
-                    All employees <ArrowRight className="h-3 w-3" />
-                  </Link>
-                }
-              />
-              <ul className="divide-y divide-[var(--border)]">
-                {[
-                  { href: "/employees/new", label: "Onboard a new employee", desc: "Create a 201 record and account" },
-                  { href: "/schedules", label: "Assign shift schedules", desc: "Templates for graveyard and day shifts" },
-                  { href: "/leaves", label: "Review leave requests", desc: `${pendingLeaves} awaiting approval` },
-                  { href: "/payroll", label: "Process payroll", desc: "Run contributions, NSD, and taxes" },
-                ].map((a) => (
-                  <li key={a.href}>
-                    <Link href={a.href} className="flex items-center justify-between px-5 py-3 transition hover:bg-slate-50">
-                      <div>
-                        <p className="text-sm font-semibold">{a.label}</p>
-                        <p className="text-xs text-[var(--muted)]">{a.desc}</p>
-                      </div>
-                      <ArrowRight className="h-4 w-4 text-slate-400" />
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </Card>
+              {/* Progress Bar */}
+              <div className="mt-6">
+                <div className="flex items-center justify-between text-sm mb-2">
+                  <span className="text-muted">Shift Progress</span>
+                  <span className="font-semibold text-foreground">65%</span>
+                </div>
+                <ProgressBar value={65} color="primary" size="md" />
+                <p className="mt-2 text-xs text-muted">2:30 remaining until shift ends</p>
+              </div>
+            </div>
+          </Card>
+        </motion.div>
 
-            <Card>
-              <CardHeader title="Recent Leave Requests" />
-              <RecentLeaves />
-            </Card>
-          </div>
-        </>
-      ) : null}
-    </>
-  );
-}
+        {/* Quick Actions */}
+        <motion.div variants={itemVariants}>
+          <Card className="h-full">
+            <CardHeader
+              title="Quick Actions"
+              action={
+                <Link href="/employees" className="text-xs font-semibold text-primary hover:text-primary-dark">
+                  View All →
+                </Link>
+              }
+            />
+            <div className="p-4 space-y-2">
+              {[
+                { href: "/employees/new", label: "Onboard Employee", desc: "Create new 201 record", icon: Users, color: "bg-primary/10 text-primary" },
+                { href: "/schedules", label: "Assign Shifts", desc: "Schedule team members", icon: CalendarDays, color: "bg-secondary/10 text-secondary-dark" },
+                { href: "/leaves", label: "Review Leaves", desc: "8 pending requests", icon: CalendarClock, color: "bg-warning/10 text-warning-dark" },
+                { href: "/payroll", label: "Process Payroll", desc: "Run payroll cycle", icon: Wallet, color: "bg-success/10 text-success" },
+              ].map((action) => (
+                <Link
+                  key={action.href}
+                  href={action.href}
+                  className="flex items-center gap-4 rounded-xl p-3 hover:bg-surface-hover transition-colors group"
+                >
+                  <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${action.color}`}>
+                    <action.icon className="h-5 w-5" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-foreground group-hover:text-primary">
+                      {action.label}
+                    </p>
+                    <p className="text-xs text-muted">{action.desc}</p>
+                  </div>
+                  <ArrowRight className="h-4 w-4 text-muted group-hover:text-primary transition-colors" />
+                </Link>
+              ))}
+            </div>
+          </Card>
+        </motion.div>
+      </div>
 
-async function RecentLeaves() {
-  const leaves = await db.leaveRequest.findMany({
-    orderBy: { createdAt: "desc" },
-    take: 6,
-    include: { employee: true, leaveType: true },
-  });
+      {/* Bottom Section */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* Recent Leave Requests */}
+        <motion.div variants={itemVariants}>
+          <Card>
+            <CardHeader
+              title="Recent Leave Requests"
+              subtitle="Latest team leave requests"
+              action={
+                <Link href="/leaves" className="text-xs font-semibold text-primary hover:text-primary-dark">
+                  View All →
+                </Link>
+              }
+            />
+            <div className="divide-y divide-border">
+              {[
+                { name: "Maria Santos", type: "Vacation Leave", dates: "Aug 30 - Sep 2", days: 3, status: "PENDING" },
+                { name: "Pedro Ramos", type: "Sick Leave", dates: "Aug 28", days: 1, status: "APPROVED" },
+                { name: "Ana Garcia", type: "Emergency Leave", dates: "Aug 29", days: 1, status: "PENDING" },
+                { name: "Carlos Reyes", type: "Vacation Leave", dates: "Sep 5 - Sep 10", days: 5, status: "APPROVED" },
+              ].map((request, index) => (
+                <div key={index} className="flex items-center justify-between px-5 py-4 hover:bg-surface-hover transition-colors">
+                  <div className="flex items-center gap-4">
+                    <Avatar name={request.name} size="md" />
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">{request.name}</p>
+                      <p className="text-xs text-muted">
+                        {request.type} · {request.dates} · {request.days} day(s)
+                      </p>
+                    </div>
+                  </div>
+                  <Badge variant={statusTone(request.status)}>
+                    {request.status}
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          </Card>
+        </motion.div>
 
-  if (leaves.length === 0) {
-    return <p className="px-5 py-8 text-center text-sm text-[var(--muted)]">No leave requests yet.</p>;
-  }
+        {/* Team Performance */}
+        <motion.div variants={itemVariants}>
+          <Card className="h-full">
+            <CardHeader
+              title="Team Performance"
+              subtitle="This month's metrics"
+              gradient
+            />
+            <div className="p-6 space-y-6">
+              {/* Attendance Rate */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-foreground">Attendance Rate</span>
+                  <span className="text-sm font-bold text-success">94%</span>
+                </div>
+                <ProgressBar value={94} color="success" size="md" />
+              </div>
 
-  return (
-    <ul className="divide-y divide-[var(--border)]">
-      {leaves.map((lr) => (
-        <li key={lr.id} className="flex items-center justify-between px-5 py-3">
-          <div>
-            <p className="text-sm font-semibold">
-              {lr.employee.firstName} {lr.employee.lastName}
-            </p>
-            <p className="text-xs text-[var(--muted)]">
-              {lr.leaveType.name} · {formatDate(lr.startDate)} → {formatDate(lr.endDate)} · {Number(lr.days)}d
-            </p>
-          </div>
-          <Badge tone={statusTone(lr.status)}>{lr.status}</Badge>
-        </li>
-      ))}
-    </ul>
+              {/* Productivity Score */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-foreground">Productivity Score</span>
+                  <span className="text-sm font-bold text-primary">87%</span>
+                </div>
+                <ProgressBar value={87} color="primary" size="md" />
+              </div>
+
+              {/* Leave Utilization */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-foreground">Leave Utilization</span>
+                  <span className="text-sm font-bold text-warning-dark">62%</span>
+                </div>
+                <ProgressBar value={62} color="warning" size="md" />
+              </div>
+
+              {/* Top Performers */}
+              <div className="pt-4 border-t border-border">
+                <p className="text-sm font-semibold text-foreground mb-3">Top Performers</p>
+                <div className="space-y-3">
+                  {[
+                    { name: "Juan Dela Cruz", score: "98%", avatar: "JD" },
+                    { name: "Maria Santos", score: "95%", avatar: "MS" },
+                    { name: "Pedro Ramos", score: "92%", avatar: "PR" },
+                  ].map((performer, index) => (
+                    <div key={index} className="flex items-center gap-3">
+                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+                        {index + 1}
+                      </span>
+                      <Avatar name={performer.name} size="sm" />
+                      <span className="flex-1 text-sm font-medium text-foreground">{performer.name}</span>
+                      <span className="text-sm font-bold text-success">{performer.score}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </Card>
+        </motion.div>
+      </div>
+    </motion.div>
   );
 }
