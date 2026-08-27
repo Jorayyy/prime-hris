@@ -1,20 +1,23 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Search,
   Bell,
   Settings,
-  Moon,
-  Sun,
   Command,
   ChevronDown,
   LogOut,
   User,
   HelpCircle,
+  ExternalLink,
+  BookOpen,
+  MessageSquare,
 } from "lucide-react";
-import { cx, Avatar, Badge, Button } from "@/components/ui";
+import { cx, Avatar, Button } from "@/components/ui";
 import { logoutAction } from "@/lib/actions/auth";
 
 interface HeaderProps {
@@ -28,12 +31,15 @@ interface HeaderProps {
 }
 
 export default function Header({ user, company }: HeaderProps) {
+  const router = useRouter();
   const [showSearch, setShowSearch] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const notifRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
+  const helpRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -43,14 +49,33 @@ export default function Header({ user, company }: HeaderProps) {
       if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
         setShowUserMenu(false);
       }
+      if (helpRef.current && !helpRef.current.contains(e.target as Node)) {
+        setShowHelp(false);
+      }
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        setShowSearch(true);
+      }
+      if (e.key === "Escape") {
+        setShowSearch(false);
+        setShowNotifications(false);
+        setShowUserMenu(false);
+        setShowHelp(false);
+      }
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
   const fullName = [user.firstName, user.lastName].filter(Boolean).join(" ") || user.email;
 
-  // Mock notifications
   const notifications = [
     { id: 1, title: "Leave request approved", message: "Your VL request for Aug 30 has been approved", time: "5 min ago", read: false },
     { id: 2, title: "New announcement", message: "Company holiday on September 1", time: "1 hour ago", read: false },
@@ -61,7 +86,6 @@ export default function Header({ user, company }: HeaderProps) {
 
   return (
     <header className="flex h-16 items-center justify-between border-b border-border bg-white px-6">
-      {/* Left: Breadcrumb / Page Info */}
       <div className="flex items-center gap-4">
         <div className="hidden lg:block">
           <p className="text-sm font-medium text-foreground">{company}</p>
@@ -69,7 +93,6 @@ export default function Header({ user, company }: HeaderProps) {
         </div>
       </div>
 
-      {/* Center: Search */}
       <div className="flex-1 max-w-xl mx-4">
         <button
           onClick={() => setShowSearch(true)}
@@ -83,14 +106,14 @@ export default function Header({ user, company }: HeaderProps) {
         </button>
       </div>
 
-      {/* Right: Actions */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1">
         {/* Notifications */}
         <div className="relative" ref={notifRef}>
           <button
             onClick={() => {
               setShowNotifications(!showNotifications);
               setShowUserMenu(false);
+              setShowHelp(false);
             }}
             className="relative flex h-10 w-10 items-center justify-center rounded-xl text-muted hover:bg-surface-hover hover:text-foreground transition-colors"
           >
@@ -149,16 +172,85 @@ export default function Header({ user, company }: HeaderProps) {
         </div>
 
         {/* Settings */}
-        <button className="flex h-10 w-10 items-center justify-center rounded-xl text-muted hover:bg-surface-hover hover:text-foreground transition-colors">
+        <button
+          onClick={() => {
+            setShowNotifications(false);
+            setShowUserMenu(false);
+            setShowHelp(false);
+            router.push("/settings");
+          }}
+          className="flex h-10 w-10 items-center justify-center rounded-xl text-muted hover:bg-surface-hover hover:text-foreground transition-colors"
+          title="Settings"
+        >
           <Settings className="h-5 w-5" />
         </button>
 
         {/* Help */}
-        <button className="flex h-10 w-10 items-center justify-center rounded-xl text-muted hover:bg-surface-hover hover:text-foreground transition-colors">
-          <HelpCircle className="h-5 w-5" />
-        </button>
+        <div className="relative" ref={helpRef}>
+          <button
+            onClick={() => {
+              setShowHelp(!showHelp);
+              setShowNotifications(false);
+              setShowUserMenu(false);
+            }}
+            className="flex h-10 w-10 items-center justify-center rounded-xl text-muted hover:bg-surface-hover hover:text-foreground transition-colors"
+            title="Help & Support"
+          >
+            <HelpCircle className="h-5 w-5" />
+          </button>
 
-        {/* Divider */}
+          <AnimatePresence>
+            {showHelp && (
+              <motion.div
+                initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                transition={{ duration: 0.15 }}
+                className="absolute right-0 top-full mt-2 w-72 rounded-xl border border-border bg-white shadow-xl z-50"
+              >
+                <div className="border-b border-border px-4 py-3">
+                  <h3 className="text-sm font-bold text-foreground">Help & Support</h3>
+                  <p className="text-xs text-muted mt-0.5">Get help with using the HRIS</p>
+                </div>
+                <div className="py-2">
+                  <Link
+                    href="/me"
+                    onClick={() => setShowHelp(false)}
+                    className="flex items-center gap-3 px-4 py-2.5 text-sm text-muted hover:bg-surface-hover hover:text-foreground transition-colors"
+                  >
+                    <BookOpen className="h-4 w-4" />
+                    <div>
+                      <p className="font-medium">User Guide</p>
+                      <p className="text-xs text-muted">Learn how to use the system</p>
+                    </div>
+                  </Link>
+                  <a
+                    href="mailto:support@company.com"
+                    className="flex items-center gap-3 px-4 py-2.5 text-sm text-muted hover:bg-surface-hover hover:text-foreground transition-colors"
+                  >
+                    <MessageSquare className="h-4 w-4" />
+                    <div>
+                      <p className="font-medium">Contact Support</p>
+                      <p className="text-xs text-muted">support@company.com</p>
+                    </div>
+                  </a>
+                  <Link
+                    href="/dashboard"
+                    onClick={() => setShowHelp(false)}
+                    className="flex items-center gap-3 px-4 py-2.5 text-sm text-muted hover:bg-surface-hover hover:text-foreground transition-colors"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    <div>
+                      <p className="font-medium">Keyboard Shortcuts</p>
+                      <p className="text-xs text-muted">⌘K to search, Esc to close</p>
+                    </div>
+                  </Link>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
         <div className="mx-2 h-8 w-px bg-border" />
 
         {/* User Menu */}
@@ -167,6 +259,7 @@ export default function Header({ user, company }: HeaderProps) {
             onClick={() => {
               setShowUserMenu(!showUserMenu);
               setShowNotifications(false);
+              setShowHelp(false);
             }}
             className="flex items-center gap-3 rounded-xl px-3 py-2 hover:bg-surface-hover transition-colors"
           >
@@ -192,17 +285,23 @@ export default function Header({ user, company }: HeaderProps) {
                   <p className="text-xs text-muted">{user.email}</p>
                 </div>
                 <div className="py-2">
-                  <button className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-muted hover:bg-surface-hover hover:text-foreground transition-colors">
+                  <Link
+                    href="/me"
+                    onClick={() => setShowUserMenu(false)}
+                    className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-muted hover:bg-surface-hover hover:text-foreground transition-colors"
+                  >
                     <User className="h-4 w-4" />
                     My Profile
-                  </button>
-                  <button className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-muted hover:bg-surface-hover hover:text-foreground transition-colors">
+                  </Link>
+                  <button
+                    onClick={() => {
+                      setShowUserMenu(false);
+                      router.push("/settings");
+                    }}
+                    className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-muted hover:bg-surface-hover hover:text-foreground transition-colors"
+                  >
                     <Settings className="h-4 w-4" />
                     Account Settings
-                  </button>
-                  <button className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-muted hover:bg-surface-hover hover:text-foreground transition-colors">
-                    <HelpCircle className="h-4 w-4" />
-                    Help & Support
                   </button>
                 </div>
                 <div className="border-t border-border py-2">
@@ -260,17 +359,19 @@ export default function Header({ user, company }: HeaderProps) {
                 <p className="text-xs font-semibold text-muted uppercase tracking-wide mb-3">Quick Actions</p>
                 <div className="space-y-2">
                   {[
-                    { label: "Add New Employee", shortcut: "⌘ + N" },
-                    { label: "Process Payroll", shortcut: "⌘ + P" },
-                    { label: "View Attendance", shortcut: "⌘ + A" },
+                    { label: "Add New Employee", href: "/employees/new" },
+                    { label: "Process Payroll", href: "/payroll" },
+                    { label: "View Attendance", href: "/attendance" },
+                    { label: "Settings", href: "/settings" },
                   ].map((action) => (
-                    <button
-                      key={action.label}
+                    <Link
+                      key={action.href}
+                      href={action.href}
+                      onClick={() => setShowSearch(false)}
                       className="flex w-full items-center justify-between rounded-lg px-4 py-3 text-sm text-foreground hover:bg-surface-hover transition-colors"
                     >
                       <span>{action.label}</span>
-                      <kbd className="rounded border border-border px-2 py-0.5 text-xs text-muted">{action.shortcut}</kbd>
-                    </button>
+                    </Link>
                   ))}
                 </div>
                 <p className="text-xs font-semibold text-muted uppercase tracking-wide mb-3 mt-6">Recent</p>
@@ -279,8 +380,10 @@ export default function Header({ user, company }: HeaderProps) {
                     { name: "Juan Dela Cruz", type: "Employee" },
                     { name: "Maria Santos", type: "Employee" },
                   ].map((item) => (
-                    <button
+                    <Link
                       key={item.name}
+                      href="/employees"
+                      onClick={() => setShowSearch(false)}
                       className="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-sm text-foreground hover:bg-surface-hover transition-colors"
                     >
                       <Avatar name={item.name} size="sm" />
@@ -288,7 +391,7 @@ export default function Header({ user, company }: HeaderProps) {
                         <p className="font-medium">{item.name}</p>
                         <p className="text-xs text-muted">{item.type}</p>
                       </div>
-                    </button>
+                    </Link>
                   ))}
                 </div>
               </div>
