@@ -6,6 +6,7 @@ import { AddForm, Row as IpRow } from "./ip-forms";
 import { addAllowedIpAction, removeAllowedIpAction, toggleAllowedIpAction } from "@/lib/actions/ips";
 import ShiftTemplateEditor from "./shift-template-editor";
 import GroupManager from "./group-manager";
+import LogoPicker from "./logo-picker";
 
 export const metadata = { title: "Settings" };
 
@@ -56,6 +57,11 @@ export default async function SettingsPage() {
             }
           }
         />
+      </Card>
+
+      <Card>
+        <CardHeader title="Company Logo" subtitle="Displayed in the sidebar and on payslips" />
+        <LogoPicker logoUrl={settings?.logoUrl ?? null} />
       </Card>
 
       <div className="grid gap-6 lg:grid-cols-2">

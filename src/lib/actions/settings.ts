@@ -313,3 +313,56 @@ export async function toggleGroupActiveAction(id: string, active: boolean) {
   revalidatePath("/settings");
   return { ok: true };
 }
+
+// ==============================
+// LOGO UPLOAD
+// ==============================
+
+export async function uploadLogoAction(_prev: { error?: string; ok?: boolean }, formData: FormData) {
+  try {
+    await requireRole("ADMIN", "HR");
+  } catch {
+    throw new ForbiddenError();
+  }
+
+  const file = formData.get("logo") as File | null;
+  if (!file || file.size === 0) return { error: "Please select an image." };
+
+  const allowed = ["image/png", "image/jpeg", "image/webp", "image/svg+xml"];
+  if (!allowed.includes(file.type)) return { error: "Only PNG, JPG, WebP, or SVG files are allowed." };
+  if (file.size > 2 * 1024 * 1024) return { error: "Image must be under 2 MB." };
+
+  const bytes = await file.arrayBuffer();
+  const base64 = Buffer.from(bytes).toString("base64");
+  const dataUri = `data:${file.type};base64,${base64}`;
+
+  const existing = await db.companySettings.findFirst();
+  if (existing) {
+    await db.companySettings.update({ where: { id: existing.id }, data: { logoUrl: dataUri } });
+  } else {
+    await db.companySettings.create({ data: { name: "HRIS Company", logoUrl: dataUri } });
+  }
+
+  await recordAudit({ action: "UPLOAD_LOGO", entity: "CompanySettings" });
+  revalidatePath("/settings");
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+export async function removeLogoAction() {
+  try {
+    await requireRole("ADMIN", "HR");
+  } catch {
+    throw new ForbiddenError();
+  }
+
+  const existing = await db.companySettings.findFirst();
+  if (existing) {
+    await db.companySettings.update({ where: { id: existing.id }, data: { logoUrl: null } });
+  }
+
+  await recordAudit({ action: "REMOVE_LOGO", entity: "CompanySettings" });
+  revalidatePath("/settings");
+  revalidatePath("/", "layout");
+  return { ok: true };
+}

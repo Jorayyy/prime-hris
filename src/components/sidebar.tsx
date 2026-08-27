@@ -57,7 +57,7 @@ const NAV: Array<{ section: string; items: NavItem[] }> = [
   },
 ];
 
-export default function Sidebar({ role, company }: { role: Role; company: string }) {
+export default function Sidebar({ role, company, logoUrl }: { role: Role; company: string; logoUrl?: string | null }) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
@@ -74,9 +74,13 @@ export default function Sidebar({ role, company }: { role: Role; company: string
           <motion.div
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-primary text-sm font-bold text-white shadow-md"
+            className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-primary text-sm font-bold text-white shadow-md overflow-hidden"
           >
-            HR
+            {logoUrl ? (
+              <img src={logoUrl} alt="Logo" className="h-full w-full object-contain" />
+            ) : (
+              "HR"
+            )}
           </motion.div>
           <AnimatePresence>
             {!collapsed && (

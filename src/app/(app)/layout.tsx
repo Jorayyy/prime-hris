@@ -90,7 +90,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
-      <Sidebar role={user.role} company={company} />
+      <Sidebar role={user.role} company={company} logoUrl={settings?.logoUrl ?? null} />
       <div className="flex min-w-0 flex-1 flex-col">
         <Header
           user={{
