@@ -16,12 +16,9 @@ import {
   UserCog,
   ChevronLeft,
   ChevronRight,
-  Bell,
-  HelpCircle,
-  LogOut,
   Search,
 } from "lucide-react";
-import { cx, Avatar, Badge } from "@/components/ui";
+import { cx, Badge } from "@/components/ui";
 import type { Role } from "@prisma/client";
 
 type NavItem = {
@@ -215,78 +212,6 @@ export default function Sidebar({ role, company }: { role: Role; company: string
           );
         })}
       </nav>
-
-      {/* Bottom Actions */}
-      <div className="border-t border-border p-3">
-        <AnimatePresence>
-          {!collapsed ? (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="flex items-center gap-2"
-            >
-              <button className="flex h-9 w-9 items-center justify-center rounded-lg text-muted hover:bg-surface-hover hover:text-foreground transition-colors">
-                <Bell className="h-5 w-5" />
-              </button>
-              <button className="flex h-9 w-9 items-center justify-center rounded-lg text-muted hover:bg-surface-hover hover:text-foreground transition-colors">
-                <HelpCircle className="h-5 w-5" />
-              </button>
-              <div className="flex-1" />
-              <form action="/logout" method="post">
-                <button
-                  type="submit"
-                  className="flex h-9 w-9 items-center justify-center rounded-lg text-muted hover:bg-danger/10 hover:text-danger transition-colors"
-                >
-                  <LogOut className="h-5 w-5" />
-                </button>
-              </form>
-            </motion.div>
-          ) : (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="flex flex-col items-center gap-2"
-            >
-              <button className="flex h-9 w-9 items-center justify-center rounded-lg text-muted hover:bg-surface-hover hover:text-foreground transition-colors">
-                <Bell className="h-5 w-5" />
-              </button>
-              <button className="flex h-9 w-9 items-center justify-center rounded-lg text-muted hover:bg-surface-hover hover:text-foreground transition-colors">
-                <HelpCircle className="h-5 w-5" />
-              </button>
-              <form action="/logout" method="post">
-                <button
-                  type="submit"
-                  className="flex h-9 w-9 items-center justify-center rounded-lg text-muted hover:bg-danger/10 hover:text-danger transition-colors"
-                >
-                  <LogOut className="h-5 w-5" />
-                </button>
-              </form>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-
-      {/* User Profile */}
-      <div className="border-t border-border p-4">
-        <div className="flex items-center gap-3">
-          <Avatar name={role} size="md" status="online" />
-          <AnimatePresence>
-            {!collapsed && (
-              <motion.div
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -10 }}
-                className="flex-1 overflow-hidden"
-              >
-                <p className="truncate text-sm font-semibold text-foreground">{role}</p>
-                <p className="truncate text-xs text-muted">View Profile</p>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-      </div>
     </motion.aside>
   );
 }
