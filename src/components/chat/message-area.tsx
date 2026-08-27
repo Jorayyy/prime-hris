@@ -100,6 +100,8 @@ export default function MessageArea({
         onNewMessage(msg.conversationId);
         return;
       }
+      // Skip own messages — the send callback handles those
+      if (msg.senderId === currentUserId) return;
       setMessages((prev) => {
         if (prev.some((m) => m.id === msg.id)) return prev;
         return [...prev, msg];

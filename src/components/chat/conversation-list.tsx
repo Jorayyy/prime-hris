@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { MessageSquare, Search, Plus, Trash2 } from "lucide-react";
 import { Avatar, Badge } from "@/components/ui";
 import type { ConversationWithDetails } from "@/lib/actions/chat";
+import { deleteConversation } from "@/lib/actions/chat";
 import { formatDistanceToNow } from "@/lib/format";
 import { getSocket } from "@/lib/socket";
 
@@ -50,10 +51,15 @@ export default function ConversationList({
     setContextMenu({ convId, x: e.clientX, y: e.clientY });
   };
 
-  const handleDelete = (convId: string) => {
+  const handleDelete = async (convId: string) => {
     if (!confirm("Delete this conversation?")) return;
-    getSocket().emit("delete_conversation", convId);
-    onDeleteConversation(convId);
+    try {
+      await deleteConversation(convId);
+      getSocket().emit("delete_conversation", convId);
+      onDeleteConversation(convId);
+    } catch (err) {
+      console.error("Failed to delete conversation:", err);
+    }
     setContextMenu(null);
   };
 
