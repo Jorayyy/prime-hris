@@ -16,9 +16,20 @@ import {
   ExternalLink,
   BookOpen,
   MessageSquare,
+  CalendarClock,
+  Wallet,
 } from "lucide-react";
-import { cx, Avatar, Button } from "@/components/ui";
+import { cx, Avatar } from "@/components/ui";
 import { logoutAction } from "@/lib/actions/auth";
+
+type Notification = {
+  id: string;
+  title: string;
+  message: string;
+  time: string;
+  href: string;
+  read: boolean;
+};
 
 interface HeaderProps {
   user: {
@@ -28,9 +39,21 @@ interface HeaderProps {
     role: string;
   };
   company: string;
+  notifications: Notification[];
 }
 
-export default function Header({ user, company }: HeaderProps) {
+function timeAgo(date: Date): string {
+  const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
+  if (seconds < 60) return "Just now";
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
+export default function Header({ user, company, notifications }: HeaderProps) {
   const router = useRouter();
   const [showSearch, setShowSearch] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -75,13 +98,6 @@ export default function Header({ user, company }: HeaderProps) {
   }, []);
 
   const fullName = [user.firstName, user.lastName].filter(Boolean).join(" ") || user.email;
-
-  const notifications = [
-    { id: 1, title: "Leave request approved", message: "Your VL request for Aug 30 has been approved", time: "5 min ago", read: false },
-    { id: 2, title: "New announcement", message: "Company holiday on September 1", time: "1 hour ago", read: false },
-    { id: 3, title: "Payroll processed", message: "Your payslip is ready for download", time: "2 hours ago", read: true },
-  ];
-
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   return (
@@ -141,25 +157,31 @@ export default function Header({ user, company }: HeaderProps) {
                   </button>
                 </div>
                 <div className="max-h-80 overflow-y-auto">
-                  {notifications.map((notification) => (
-                    <div
-                      key={notification.id}
-                      className={cx(
-                        "flex gap-3 px-4 py-3 hover:bg-surface-hover transition-colors cursor-pointer",
-                        !notification.read && "bg-primary/5"
-                      )}
-                    >
-                      <div className={cx(
-                        "h-2 w-2 mt-1.5 rounded-full flex-shrink-0",
-                        notification.read ? "bg-muted-light" : "bg-primary"
-                      )} />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-foreground">{notification.title}</p>
-                        <p className="text-xs text-muted truncate">{notification.message}</p>
-                        <p className="text-[10px] text-muted-light mt-1">{notification.time}</p>
-                      </div>
-                    </div>
-                  ))}
+                  {notifications.length === 0 ? (
+                    <p className="px-4 py-8 text-center text-sm text-muted">No notifications</p>
+                  ) : (
+                    notifications.map((n) => (
+                      <Link
+                        key={n.id}
+                        href={n.href}
+                        onClick={() => setShowNotifications(false)}
+                        className={cx(
+                          "flex gap-3 px-4 py-3 hover:bg-surface-hover transition-colors cursor-pointer",
+                          !n.read && "bg-primary/5"
+                        )}
+                      >
+                        <div className={cx(
+                          "h-2 w-2 mt-1.5 rounded-full flex-shrink-0",
+                          n.read ? "bg-muted-light" : "bg-primary"
+                        )} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-foreground">{n.title}</p>
+                          <p className="text-xs text-muted truncate">{n.message}</p>
+                          <p className="text-[10px] text-muted-light mt-1">{n.time}</p>
+                        </div>
+                      </Link>
+                    ))
+                  )}
                 </div>
                 <div className="border-t border-border px-4 py-2">
                   <button className="w-full text-center text-xs font-medium text-primary hover:text-primary-dark">
@@ -219,9 +241,31 @@ export default function Header({ user, company }: HeaderProps) {
                     className="flex items-center gap-3 px-4 py-2.5 text-sm text-muted hover:bg-surface-hover hover:text-foreground transition-colors"
                   >
                     <BookOpen className="h-4 w-4" />
-                    <div>
-                      <p className="font-medium">User Guide</p>
-                      <p className="text-xs text-muted">Learn how to use the system</p>
+                    <div className="text-left">
+                      <p className="font-medium">My Profile</p>
+                      <p className="text-xs text-muted">View your records & profile</p>
+                    </div>
+                  </Link>
+                  <Link
+                    href="/schedules"
+                    onClick={() => setShowHelp(false)}
+                    className="flex items-center gap-3 px-4 py-2.5 text-sm text-muted hover:bg-surface-hover hover:text-foreground transition-colors"
+                  >
+                    <CalendarClock className="h-4 w-4" />
+                    <div className="text-left">
+                      <p className="font-medium">My Schedule</p>
+                      <p className="text-xs text-muted">View your shift assignments</p>
+                    </div>
+                  </Link>
+                  <Link
+                    href="/payroll"
+                    onClick={() => setShowHelp(false)}
+                    className="flex items-center gap-3 px-4 py-2.5 text-sm text-muted hover:bg-surface-hover hover:text-foreground transition-colors"
+                  >
+                    <Wallet className="h-4 w-4" />
+                    <div className="text-left">
+                      <p className="font-medium">My Payslips</p>
+                      <p className="text-xs text-muted">View pay history & downloads</p>
                     </div>
                   </Link>
                   <a
@@ -229,22 +273,11 @@ export default function Header({ user, company }: HeaderProps) {
                     className="flex items-center gap-3 px-4 py-2.5 text-sm text-muted hover:bg-surface-hover hover:text-foreground transition-colors"
                   >
                     <MessageSquare className="h-4 w-4" />
-                    <div>
+                    <div className="text-left">
                       <p className="font-medium">Contact Support</p>
                       <p className="text-xs text-muted">support@company.com</p>
                     </div>
                   </a>
-                  <Link
-                    href="/dashboard"
-                    onClick={() => setShowHelp(false)}
-                    className="flex items-center gap-3 px-4 py-2.5 text-sm text-muted hover:bg-surface-hover hover:text-foreground transition-colors"
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                    <div>
-                      <p className="font-medium">Keyboard Shortcuts</p>
-                      <p className="text-xs text-muted">⌘K to search, Esc to close</p>
-                    </div>
-                  </Link>
                 </div>
               </motion.div>
             )}
