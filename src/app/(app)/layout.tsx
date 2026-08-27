@@ -9,7 +9,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   try {
     user = await getSessionUser();
   } catch {
-    redirect("/login");
+    user = null;
   }
   if (!user) redirect("/login");
 

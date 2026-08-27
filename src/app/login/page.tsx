@@ -8,8 +8,13 @@ export const metadata = { title: "Sign In" };
 export const dynamic = "force-dynamic";
 
 export default async function LoginPage() {
-  const settings = await db.companySettings.findFirst();
-  const company = settings?.name ?? "HRIS";
+  let company = "HRIS";
+  try {
+    const settings = await db.companySettings.findFirst();
+    company = settings?.name ?? "HRIS";
+  } catch {
+    // DB may be cold-starting; use default
+  }
 
   return (
     <main className="flex min-h-screen items-center justify-center px-6 py-12">
