@@ -23,7 +23,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const now = new Date();
   let pendingLeaves: Array<{ id: string; createdAt: Date; employee: { firstName: string; lastName: string }; leaveType: { name: string } }> = [];
   let recentPayPeriod: { startDate: Date; endDate: Date } | null = null;
-  let recentOvertime: Array<{ id: string; createdAt: Date; employee: { firstName: string; lastName: string }; requestedHours: number }> = [];
+  let recentOvertime: Array<{ id: string; createdAt: Date; employee: { firstName: string; lastName: string }; requestedHours: any }> = [];
   try {
     [pendingLeaves, recentPayPeriod, recentOvertime] = await Promise.all([
       db.leaveRequest.findMany({
