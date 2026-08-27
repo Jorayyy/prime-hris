@@ -11,7 +11,7 @@ export function getSocket(): Socket {
 
   socket = io(SOCKET_URL, {
     auth: {
-      token: getCookie("hris_session"),
+      token: getCookie("hris_token"),
     },
     transports: ["websocket", "polling"],
     reconnection: true,
