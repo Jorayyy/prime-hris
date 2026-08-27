@@ -6,7 +6,7 @@ import { X, Play, MapPin, Users } from "lucide-react";
 import { processGroupAction } from "@/lib/actions/payroll";
 
 type Site = { id: string; name: string };
-type Group = { id: string; name: string; siteId: string; monthlyRate: number; payFrequency: string; isActive: boolean; _count: { employees: number } };
+type Group = { id: string; name: string; siteId: string | null; monthlyRate: number; payFrequency: string; isActive: boolean; _count: { employees: number } };
 
 export default function ProcessGroupModal({
   periodId,

@@ -12,8 +12,8 @@ type Group = {
   id: string;
   name: string;
   description: string | null;
-  siteId: string;
-  site: { name: string };
+  siteId: string | null;
+  site: { name: string } | null;
   monthlyRate: number;
   payFrequency: string;
   nightDiffRate: number;
@@ -61,7 +61,7 @@ export default function GroupManager({ groups, sites }: { groups: Group[]; sites
     setForm({
       name: g.name,
       description: g.description ?? "",
-      siteId: g.siteId,
+      siteId: g.siteId ?? "",
       monthlyRate: String(g.monthlyRate),
       payFrequency: g.payFrequency,
       nightDiffRate: String(g.nightDiffRate),
@@ -88,7 +88,8 @@ export default function GroupManager({ groups, sites }: { groups: Group[]; sites
 
   // Group by site
   const grouped = groups.reduce<Record<string, Group[]>>((acc, g) => {
-    (acc[g.site.name] ??= []).push(g);
+    const siteName = g.site?.name ?? "Unassigned";
+    (acc[siteName] ??= []).push(g);
     return acc;
   }, {});
 
