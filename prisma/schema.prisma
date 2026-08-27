@@ -221,8 +221,8 @@ model Position {
 model Group {
   id               String        @id @default(cuid())
   name             String
-  siteId           String
-  site             Site          @relation(fields: [siteId], references: [id])
+  siteId           String?
+  site             Site?          @relation(fields: [siteId], references: [id])
   description      String?
   // Payroll defaults for this group
   monthlyRate      Decimal       @db.Decimal(12, 2)
