@@ -53,17 +53,11 @@ export default function AdminDashboard({ user, stats, recentLeaves }: Props) {
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-6">
       {/* Welcome */}
-      <motion.div variants={itemVariants} className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">
-            Welcome back, {user.firstName || "Admin"}! 👋
-          </h1>
-          <p className="mt-1 text-sm text-muted">{formatDate(today)} · Here&apos;s your team overview</p>
-        </div>
-        <Button variant="gradient" size="lg">
-          <Activity className="h-5 w-5" />
-          View Reports
-        </Button>
+      <motion.div variants={itemVariants}>
+        <h1 className="text-2xl font-bold tracking-tight">
+          Welcome back, {user.firstName || "Admin"}! 👋
+        </h1>
+        <p className="mt-1 text-sm text-muted">{formatDate(today)} · Here&apos;s your team overview</p>
       </motion.div>
 
       {/* Stat Cards */}
