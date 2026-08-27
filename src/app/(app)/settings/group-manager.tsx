@@ -160,7 +160,7 @@ export default function GroupManager({ groups, sites }: { groups: Group[]; sites
                       <div className="rounded-lg bg-slate-50 px-3 py-2">
                         <p className="text-muted">Allowances</p>
                         <p className="font-bold text-foreground">
-                          ₱{Number(g.riceAllowance + g.transpoAllowance + g.otherAllowance).toLocaleString()}
+                          ₱{(parseFloat(String(g.riceAllowance)) + parseFloat(String(g.transpoAllowance)) + parseFloat(String(g.otherAllowance))).toLocaleString()}
                         </p>
                       </div>
                     </div>

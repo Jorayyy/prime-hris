@@ -131,6 +131,9 @@ async function main() {
   const leadPos = await db.position.upsert({ where: { title: "Team Lead" }, update: {}, create: { title: "Team Lead", level: 3 } });
 
   // ---------- Payroll Groups ----------
+  // Clean up old groups with null siteId (from before siteId was added)
+  await db.group.deleteMany({ where: { siteId: null } });
+
   const groupA = await db.group.upsert({
     where: { name_siteId: { name: "Group A - CSR", siteId: site.id } },
     update: {},
