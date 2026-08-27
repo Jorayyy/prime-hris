@@ -1,5 +1,3 @@
-"use client";
-
 import type {
   ButtonHTMLAttributes,
   InputHTMLAttributes,
@@ -8,7 +6,6 @@ import type {
   ReactNode,
 } from "react";
 import { forwardRef } from "react";
-import { motion, type MotionProps } from "framer-motion";
 import { cva, type VariantProps } from "class-variance-authority";
 
 // ==============================
@@ -72,12 +69,11 @@ interface ButtonProps
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant, size, loading, icon, children, disabled, ...props }, ref) => {
     return (
-      <motion.button
+      <button
         ref={ref}
-        whileTap={{ scale: 0.98 }}
         className={cx(buttonVariants({ variant, size, className }))}
         disabled={disabled || loading}
-        {...(props as MotionProps & ButtonHTMLAttributes<HTMLButtonElement>)}
+        {...props}
       >
         {loading ? (
           <svg
@@ -104,7 +100,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
           <span className="flex-shrink-0">{icon}</span>
         ) : null}
         {children}
-      </motion.button>
+      </button>
     );
   }
 );
@@ -519,9 +515,8 @@ interface StatCardProps {
 
 export function StatCard({ label, value, sub, icon, trend, trendValue, gradient }: StatCardProps) {
   return (
-    <motion.div
-      whileHover={{ y: -2 }}
-      className="rounded-xl border border-border bg-white p-5 shadow-sm transition-shadow hover:shadow-md"
+    <div
+      className="rounded-xl border border-border bg-white p-5 shadow-sm transition-shadow hover:shadow-md hover-lift"
     >
       <div className="flex items-start justify-between">
         <div className="flex-1">
@@ -550,7 +545,7 @@ export function StatCard({ label, value, sub, icon, trend, trendValue, gradient 
           {icon}
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 }
 
@@ -646,11 +641,9 @@ export function ProgressBar({
         </div>
       )}
       <div className={cx("w-full overflow-hidden rounded-full bg-muted-light/20", sizeClasses[size])}>
-        <motion.div
-          initial={{ width: 0 }}
-          animate={{ width: `${percentage}%` }}
-          transition={{ duration: 0.5, ease: "easeOut" }}
-          className={cx("h-full rounded-full", colorClasses[color])}
+        <div
+          className={cx("h-full rounded-full transition-all duration-500 ease-out", colorClasses[color])}
+          style={{ width: `${percentage}%` }}
         />
       </div>
     </div>
