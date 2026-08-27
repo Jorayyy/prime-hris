@@ -22,10 +22,14 @@ export default async function DashboardPage() {
       db.campaign.count({ where: { isActive: true } }),
     ]);
 
-    const recentAttendance = await db.attendanceDaily.findMany({ orderBy: { workDate: "desc" }, take: 50 });
-    const presentToday = recentAttendance.filter((a) => a.status === "PRESENT" || a.status === "LATE").length;
-    const lateToday = recentAttendance.filter((a) => a.status === "LATE").length;
-    const absentToday = recentAttendance.filter((a) => a.status === "ABSENT").length;
+    const todayEnd = new Date(today);
+    todayEnd.setDate(todayEnd.getDate() + 1);
+    const todayAttendance = await db.attendanceDaily.findMany({
+      where: { workDate: { gte: today, lt: todayEnd } },
+    });
+    const presentToday = todayAttendance.filter((a) => a.status === "PRESENT" || a.status === "LATE").length;
+    const lateToday = todayAttendance.filter((a) => a.status === "LATE").length;
+    const absentToday = todayAttendance.filter((a) => a.status === "ABSENT").length;
 
     const recentLeaves = await db.leaveRequest.findMany({
       orderBy: { createdAt: "desc" },
@@ -70,13 +74,14 @@ export default async function DashboardPage() {
     });
 
     // KPIs
-    const totalDays = monthAttendance.length || 1;
+    const uniqueWorkDates = new Set(monthAttendance.map((a) => a.workDate.toISOString().split("T")[0])).size || 1;
+    const expectedRecords = totalEmployees * uniqueWorkDates;
     const presentDays = monthAttendance.filter((a) => a.status === "PRESENT" || a.status === "LATE").length;
     const lateDays = monthAttendance.filter((a) => a.status === "LATE").length;
     const absentDays = monthAttendance.filter((a) => a.status === "ABSENT").length;
-    const attendanceRate = Math.round((presentDays / totalDays) * 100);
-    const tardinessRate = Math.round((lateDays / totalDays) * 100);
-    const absenteeismRate = Math.round((absentDays / totalDays) * 100);
+    const attendanceRate = Math.round((presentDays / expectedRecords) * 100);
+    const tardinessRate = Math.round((lateDays / expectedRecords) * 100);
+    const absenteeismRate = Math.round((absentDays / expectedRecords) * 100);
 
     const totalLeaveBalance = await db.leaveBalance.aggregate({
       _sum: { entitlement: true, used: true },
