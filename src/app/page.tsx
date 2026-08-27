@@ -7,7 +7,13 @@ import BundyWidget from "@/components/bundy-widget";
 export const dynamic = "force-dynamic";
 
 export default async function LandingPage() {
-  const [settings, user] = await Promise.all([db.companySettings.findFirst(), getSessionUser()]);
+  let settings: { name?: string | null } | null = null;
+  let user: Awaited<ReturnType<typeof getSessionUser>> = null;
+  try {
+    [settings, user] = await Promise.all([db.companySettings.findFirst(), getSessionUser()]);
+  } catch {
+    // DB cold-start or missing DATABASE_URL at runtime — render with defaults
+  }
   const company = settings?.name ?? "HRIS";
 
   return (

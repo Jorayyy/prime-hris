@@ -72,14 +72,20 @@ export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
   const rawToken = cookieStore.get(SESSION_COOKIE)?.value;
   if (!rawToken) return null;
 
-  const session = await db.session.findUnique({
-    where: { tokenHash: hashToken(rawToken) },
-    include: {
-      user: {
-        include: { employee: true },
+  let session;
+  try {
+    session = await db.session.findUnique({
+      where: { tokenHash: hashToken(rawToken) },
+      include: {
+        user: {
+          include: { employee: true },
+        },
       },
-    },
-  });
+    });
+  } catch {
+    // DB unreachable at runtime — treat as no session
+    return null;
+  }
 
   if (!session || session.expiresAt < new Date()) {
     // Clean up expired session opportunistically

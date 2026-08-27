@@ -13,34 +13,42 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   }
   if (!user) redirect("/login");
 
-  const settings = await db.companySettings.findFirst();
+  let settings: { name?: string | null; logoUrl?: string | null } | null = null;
+  try {
+    settings = await db.companySettings.findFirst();
+  } catch {}
   const company = settings?.name ?? "HRIS";
 
-  // Build real notifications from DB
+  // Build real notifications from DB — resilient to cold-start failures
   const now = new Date();
-  const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-
-  const [pendingLeaves, recentPayPeriod, recentOvertime] = await Promise.all([
-    db.leaveRequest.findMany({
-      where: { status: "PENDING" },
-      take: 5,
-      orderBy: { createdAt: "desc" },
-      include: {
-        employee: { select: { firstName: true, lastName: true } },
-        leaveType: { select: { name: true } },
-      },
-    }),
-    db.payPeriod.findFirst({
-      where: { status: "PAID" },
-      orderBy: { payDate: "desc" },
-    }),
-    db.overtimeRequest.findMany({
-      where: { status: "PENDING" },
-      take: 3,
-      orderBy: { createdAt: "desc" },
-      include: { employee: { select: { firstName: true, lastName: true } } },
-    }),
-  ]);
+  let pendingLeaves: Array<{ id: string; createdAt: Date; employee: { firstName: string; lastName: string }; leaveType: { name: string } }> = [];
+  let recentPayPeriod: { startDate: Date; endDate: Date } | null = null;
+  let recentOvertime: Array<{ id: string; createdAt: Date; employee: { firstName: string; lastName: string }; requestedHours: number }> = [];
+  try {
+    [pendingLeaves, recentPayPeriod, recentOvertime] = await Promise.all([
+      db.leaveRequest.findMany({
+        where: { status: "PENDING" },
+        take: 5,
+        orderBy: { createdAt: "desc" },
+        include: {
+          employee: { select: { firstName: true, lastName: true } },
+          leaveType: { select: { name: true } },
+        },
+      }),
+      db.payPeriod.findFirst({
+        where: { status: "PAID" },
+        orderBy: { payDate: "desc" },
+      }),
+      db.overtimeRequest.findMany({
+        where: { status: "PENDING" },
+        take: 3,
+        orderBy: { createdAt: "desc" },
+        include: { employee: { select: { firstName: true, lastName: true } } },
+      }),
+    ]);
+  } catch {
+    // DB may be cold-starting — render layout without notifications
+  }
 
   const notifications: Array<{
     id: string;
