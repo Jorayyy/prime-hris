@@ -5,7 +5,12 @@ import Sidebar from "@/components/sidebar";
 import Header from "@/components/header";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  const user = await getSessionUser();
+  let user;
+  try {
+    user = await getSessionUser();
+  } catch {
+    redirect("/login");
+  }
   if (!user) redirect("/login");
 
   const settings = await db.companySettings.findFirst();
