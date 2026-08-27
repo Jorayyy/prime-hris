@@ -11,10 +11,17 @@ import {
   CheckCircle,
   AlertCircle,
   Clock,
-  Activity,
 } from "lucide-react";
-import { Card, CardHeader, Badge, statusTone, StatCard, Avatar, Button, ProgressBar } from "@/components/ui";
+import { Card, CardHeader, Badge, statusTone, StatCard, Avatar, ProgressBar } from "@/components/ui";
 import { formatDate } from "@/lib/format";
+import AnnouncementsWidget from "@/components/dashboard-widgets/announcements";
+import BirthdaysWidget from "@/components/dashboard-widgets/birthdays";
+import HeadcountChart from "@/components/dashboard-widgets/headcount-chart";
+import ApprovalsWidget from "@/components/dashboard-widgets/approvals";
+import HoursTrendWidget from "@/components/dashboard-widgets/hours-trend";
+import DocExpiryWidget from "@/components/dashboard-widgets/doc-expiry";
+import HolidayCalendarWidget from "@/components/dashboard-widgets/holiday-calendar";
+import PerformanceKPIs from "@/components/dashboard-widgets/performance-kpis";
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -45,9 +52,31 @@ type Props = {
     days: number;
     status: string;
   }>;
+  announcements: Array<{ id: string; title: string; body: string; pinned: boolean; createdAt: Date }>;
+  birthdays: Array<{ firstName: string; lastName: string; dateOfBirth: Date | null; hireDate: Date }>;
+  headcount: Array<{ name: string; count: number }>;
+  approvals: Array<{ id: string; type: "LEAVE" | "OVERTIME"; employeeName: string; detail: string; date: string }>;
+  hoursTrend: Array<{ label: string; totalHours: number; overtimeHours: number }>;
+  docExpiry: Array<{ employeeName: string; documentName: string; expiresAt: Date; daysLeft: number }>;
+  holidays: Array<{ date: Date; name: string; type: string }>;
+  kpis: { attendanceRate: number; tardinessRate: number; leaveUtilization: number; absenteeismRate: number };
+  isAdmin: boolean;
 };
 
-export default function AdminDashboard({ user, stats, recentLeaves }: Props) {
+export default function AdminDashboard({
+  user,
+  stats,
+  recentLeaves,
+  announcements,
+  birthdays,
+  headcount,
+  approvals,
+  hoursTrend,
+  docExpiry,
+  holidays,
+  kpis,
+  isAdmin,
+}: Props) {
   const today = new Date();
 
   return (
@@ -55,7 +84,7 @@ export default function AdminDashboard({ user, stats, recentLeaves }: Props) {
       {/* Welcome */}
       <motion.div variants={itemVariants}>
         <h1 className="text-2xl font-bold tracking-tight">
-          Welcome back, {user.firstName || "Admin"}! 👋
+          Welcome back, {user.firstName || "Admin"}!
         </h1>
         <p className="mt-1 text-sm text-muted">{formatDate(today)} · Here&apos;s your team overview</p>
       </motion.div>
@@ -98,14 +127,19 @@ export default function AdminDashboard({ user, stats, recentLeaves }: Props) {
         />
       </motion.div>
 
-      {/* Main Grid */}
+      {/* KPIs */}
+      <motion.div variants={itemVariants}>
+        <PerformanceKPIs kpis={kpis} />
+      </motion.div>
+
+      {/* Main Grid: Attendance + Quick Actions + Approvals */}
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Attendance Overview */}
-        <motion.div variants={itemVariants} className="lg:col-span-2">
-          <Card>
+        <motion.div variants={itemVariants} className="lg:col-span-1">
+          <Card className="h-full">
             <CardHeader
               title="Today's Attendance"
-              subtitle={`${stats.presentToday} present / ${stats.totalEmployees} total`}
+              subtitle={`${stats.presentToday} / ${stats.totalEmployees}`}
               action={
                 <Badge variant={stats.lateToday > 0 ? "amber" : "green"}>
                   {stats.lateToday > 0 ? `${stats.lateToday} Late` : "All Good"}
@@ -113,23 +147,23 @@ export default function AdminDashboard({ user, stats, recentLeaves }: Props) {
               }
             />
             <div className="p-6">
-              <div className="grid grid-cols-3 gap-4">
-                <div className="rounded-xl bg-success/10 p-4 text-center">
-                  <p className="text-3xl font-bold text-success">{stats.presentToday}</p>
-                  <p className="mt-1 text-xs font-semibold uppercase text-muted">Present</p>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="rounded-xl bg-success/10 p-3 text-center">
+                  <p className="text-2xl font-bold text-success">{stats.presentToday}</p>
+                  <p className="text-[10px] font-semibold uppercase text-muted">Present</p>
                 </div>
-                <div className="rounded-xl bg-warning/10 p-4 text-center">
-                  <p className="text-3xl font-bold text-warning-dark">{stats.lateToday}</p>
-                  <p className="mt-1 text-xs font-semibold uppercase text-muted">Late</p>
+                <div className="rounded-xl bg-warning/10 p-3 text-center">
+                  <p className="text-2xl font-bold text-warning-dark">{stats.lateToday}</p>
+                  <p className="text-[10px] font-semibold uppercase text-muted">Late</p>
                 </div>
-                <div className="rounded-xl bg-danger/10 p-4 text-center">
-                  <p className="text-3xl font-bold text-danger">{stats.absentToday}</p>
-                  <p className="mt-1 text-xs font-semibold uppercase text-muted">Absent</p>
+                <div className="rounded-xl bg-danger/10 p-3 text-center">
+                  <p className="text-2xl font-bold text-danger">{stats.absentToday}</p>
+                  <p className="text-[10px] font-semibold uppercase text-muted">Absent</p>
                 </div>
               </div>
-              <div className="mt-6">
-                <div className="flex items-center justify-between text-sm mb-2">
-                  <span className="text-muted">Overall Attendance Rate</span>
+              <div className="mt-4">
+                <div className="flex items-center justify-between text-sm mb-1">
+                  <span className="text-muted">Attendance Rate</span>
                   <span className="font-semibold text-foreground">
                     {stats.totalEmployees > 0 ? Math.round((stats.presentToday / stats.totalEmployees) * 100) : 0}%
                   </span>
@@ -172,6 +206,37 @@ export default function AdminDashboard({ user, stats, recentLeaves }: Props) {
               ))}
             </div>
           </Card>
+        </motion.div>
+
+        {/* Approvals */}
+        <motion.div variants={itemVariants}>
+          <ApprovalsWidget approvals={approvals} />
+        </motion.div>
+      </div>
+
+      {/* Second Row: Hours Trend + Headcount + Holidays */}
+      <div className="grid gap-6 lg:grid-cols-3">
+        <motion.div variants={itemVariants}>
+          <HoursTrendWidget weeks={hoursTrend} />
+        </motion.div>
+        <motion.div variants={itemVariants}>
+          <HeadcountChart groups={headcount} />
+        </motion.div>
+        <motion.div variants={itemVariants}>
+          <HolidayCalendarWidget holidays={holidays} />
+        </motion.div>
+      </div>
+
+      {/* Third Row: Announcements + Birthdays + Doc Expiry */}
+      <div className="grid gap-6 lg:grid-cols-3">
+        <motion.div variants={itemVariants}>
+          <AnnouncementsWidget announcements={announcements} isAdmin={isAdmin} />
+        </motion.div>
+        <motion.div variants={itemVariants}>
+          <BirthdaysWidget employees={birthdays} />
+        </motion.div>
+        <motion.div variants={itemVariants}>
+          <DocExpiryWidget documents={docExpiry} />
         </motion.div>
       </div>
 

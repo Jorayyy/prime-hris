@@ -313,6 +313,7 @@ model Employee {
   updatedAt DateTime   @updatedAt
 
   employmentHistory EmploymentHistoryEntry[]
+  documents         EmployeeDocument[]
   attendanceLogs   TimeLog[]
   attendanceDaily  AttendanceDaily[]
   shiftAssignments ShiftAssignment[]
@@ -358,6 +359,7 @@ model SalaryHistoryEntry {
 model EmployeeDocument {
   id         String   @id @default(cuid())
   employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   name       String // e.g., "NBI Clearance", "Birth Certificate"
   fileUrl    String
   uploadedAt DateTime @default(now())
@@ -613,6 +615,19 @@ model GovContributionTable {
   createdAt   DateTime  @default(now())
 
   @@unique([type, effectiveYear, frequency])
+}
+
+// ==============================
+// ANNOUNCEMENTS
+// ==============================
+
+model Announcement {
+  id        String   @id @default(cuid())
+  title     String
+  body      String
+  pinned    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // ==============================

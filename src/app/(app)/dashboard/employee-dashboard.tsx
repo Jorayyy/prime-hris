@@ -16,6 +16,9 @@ import {
 } from "lucide-react";
 import { Card, CardHeader, Badge, StatCard, ProgressBar } from "@/components/ui";
 import { formatDate, formatTime, minutesToHoursMinutes } from "@/lib/format";
+import AnnouncementsWidget from "@/components/dashboard-widgets/announcements";
+import HolidayCalendarWidget from "@/components/dashboard-widgets/holiday-calendar";
+import DocExpiryWidget from "@/components/dashboard-widgets/doc-expiry";
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -61,6 +64,9 @@ type Props = {
   pendingLeavesCount: number;
   attendanceRate: number;
   nextPayDate: string | null;
+  announcements: Array<{ id: string; title: string; body: string; pinned: boolean; createdAt: Date }>;
+  holidays: Array<{ date: Date; name: string; type: string }>;
+  docExpiry: Array<{ documentName: string; expiresAt: Date; daysLeft: number }>;
 };
 
 export default function EmployeeDashboard({
@@ -72,6 +78,9 @@ export default function EmployeeDashboard({
   pendingLeavesCount,
   attendanceRate,
   nextPayDate,
+  announcements,
+  holidays,
+  docExpiry,
 }: Props) {
   const today = new Date();
   const now = new Date();
@@ -334,6 +343,19 @@ export default function EmployeeDashboard({
               )}
             </div>
           </Card>
+        </motion.div>
+      </div>
+
+      {/* Third Row: Announcements + Holidays + Doc Expiry */}
+      <div className="grid gap-6 lg:grid-cols-3">
+        <motion.div variants={itemVariants}>
+          <AnnouncementsWidget announcements={announcements} isAdmin={false} />
+        </motion.div>
+        <motion.div variants={itemVariants}>
+          <HolidayCalendarWidget holidays={holidays} />
+        </motion.div>
+        <motion.div variants={itemVariants}>
+          <DocExpiryWidget documents={docExpiry} />
         </motion.div>
       </div>
     </motion.div>
