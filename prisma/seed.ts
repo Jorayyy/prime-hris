@@ -130,28 +130,72 @@ async function main() {
   const seniorPos = await db.position.upsert({ where: { title: "Senior Customer Service Representative" }, update: {}, create: { title: "Senior Customer Service Representative", level: 2 } });
   const leadPos = await db.position.upsert({ where: { title: "Team Lead" }, update: {}, create: { title: "Team Lead", level: 3 } });
 
+  // ---------- Payroll Groups ----------
+  const groupA = await db.group.upsert({
+    where: { name: "Group A - CSR" },
+    update: {},
+    create: {
+      name: "Group A - CSR",
+      description: "Standard CSR team — weekly pay, basic allowances",
+      monthlyRate: 21000,
+      payFrequency: "WEEKLY",
+      nightDiffRate: 0.10,
+      riceAllowance: 1500,
+      transpoAllowance: 500,
+      otherAllowance: 0,
+    },
+  });
+  const groupB = await db.group.upsert({
+    where: { name: "Group B - Senior CSR" },
+    update: {},
+    create: {
+      name: "Group B - Senior CSR",
+      description: "Senior CSR team — weekly pay, higher rate + allowances",
+      monthlyRate: 23000,
+      payFrequency: "WEEKLY",
+      nightDiffRate: 0.12,
+      riceAllowance: 1500,
+      transpoAllowance: 1000,
+      otherAllowance: 500,
+    },
+  });
+  const groupC = await db.group.upsert({
+    where: { name: "Group C - Leadership" },
+    update: {},
+    create: {
+      name: "Group C - Leadership",
+      description: "Team Leads and managers — semi-monthly pay",
+      monthlyRate: 32000,
+      payFrequency: "SEMI_MONTHLY",
+      nightDiffRate: 0.15,
+      riceAllowance: 2000,
+      transpoAllowance: 1500,
+      otherAllowance: 1000,
+    },
+  });
+
   // ---------- 20 Employees ----------
   const empDefs = [
-    { num: "EMP0001", first: "Juan", last: "Dela Cruz", salary: 32000, posId: leadPos.id },
-    { num: "EMP0002", first: "Maria", last: "Santos", salary: 21000, posId: csrPos.id },
-    { num: "EMP0003", first: "Pedro", last: "Ramos", salary: 21000, posId: csrPos.id },
-    { num: "EMP0004", first: "Ana", last: "Garcia", salary: 21000, posId: csrPos.id },
-    { num: "EMP0005", first: "Jose", last: "Reyes", salary: 21000, posId: csrPos.id },
-    { num: "EMP0006", first: "Rose", last: "Torres", salary: 21000, posId: csrPos.id },
-    { num: "EMP0007", first: "Mark", last: "Lim", salary: 23000, posId: seniorPos.id },
-    { num: "EMP0008", first: "Joy", last: "Mendoza", salary: 21000, posId: csrPos.id },
-    { num: "EMP0009", first: "Carlo", last: "Rivera", salary: 21000, posId: csrPos.id },
-    { num: "EMP0010", first: "Lea", last: "Flores", salary: 21000, posId: csrPos.id },
-    { num: "EMP0011", first: "Angelo", last: "Cruz", salary: 21000, posId: csrPos.id },
-    { num: "EMP0012", first: "Patricia", last: "Villanueva", salary: 23000, posId: seniorPos.id },
-    { num: "EMP0013", first: "Rafael", last: "Gonzales", salary: 21000, posId: csrPos.id },
-    { num: "EMP0014", first: "Cherry", last: "Pascual", salary: 21000, posId: csrPos.id },
-    { num: "EMP0015", first: "Daniel", last: "Soriano", salary: 21000, posId: csrPos.id },
-    { num: "EMP0016", first: "Mia", last: "Aquino", salary: 21000, posId: csrPos.id },
-    { num: "EMP0017", first: "Patrick", last: "De Leon", salary: 21000, posId: csrPos.id },
-    { num: "EMP0018", first: "Sheila", last: "Morales", salary: 21000, posId: csrPos.id },
-    { num: "EMP0019", first: "Kevin", last: "Bautista", salary: 21000, posId: csrPos.id },
-    { num: "EMP0020", first: "Nicole", last: "Hernandez", salary: 21000, posId: csrPos.id },
+    { num: "EMP0001", first: "Juan", last: "Dela Cruz", salary: 32000, posId: leadPos.id, groupId: groupC.id },
+    { num: "EMP0002", first: "Maria", last: "Santos", salary: 21000, posId: csrPos.id, groupId: groupA.id },
+    { num: "EMP0003", first: "Pedro", last: "Ramos", salary: 21000, posId: csrPos.id, groupId: groupA.id },
+    { num: "EMP0004", first: "Ana", last: "Garcia", salary: 21000, posId: csrPos.id, groupId: groupA.id },
+    { num: "EMP0005", first: "Jose", last: "Reyes", salary: 21000, posId: csrPos.id, groupId: groupA.id },
+    { num: "EMP0006", first: "Rose", last: "Torres", salary: 21000, posId: csrPos.id, groupId: groupA.id },
+    { num: "EMP0007", first: "Mark", last: "Lim", salary: 23000, posId: seniorPos.id, groupId: groupB.id },
+    { num: "EMP0008", first: "Joy", last: "Mendoza", salary: 21000, posId: csrPos.id, groupId: groupA.id },
+    { num: "EMP0009", first: "Carlo", last: "Rivera", salary: 21000, posId: csrPos.id, groupId: groupA.id },
+    { num: "EMP0010", first: "Lea", last: "Flores", salary: 21000, posId: csrPos.id, groupId: groupA.id },
+    { num: "EMP0011", first: "Angelo", last: "Cruz", salary: 21000, posId: csrPos.id, groupId: groupA.id },
+    { num: "EMP0012", first: "Patricia", last: "Villanueva", salary: 23000, posId: seniorPos.id, groupId: groupB.id },
+    { num: "EMP0013", first: "Rafael", last: "Gonzales", salary: 21000, posId: csrPos.id, groupId: groupA.id },
+    { num: "EMP0014", first: "Cherry", last: "Pascual", salary: 21000, posId: csrPos.id, groupId: groupA.id },
+    { num: "EMP0015", first: "Daniel", last: "Soriano", salary: 21000, posId: csrPos.id, groupId: groupA.id },
+    { num: "EMP0016", first: "Mia", last: "Aquino", salary: 21000, posId: csrPos.id, groupId: groupA.id },
+    { num: "EMP0017", first: "Patrick", last: "De Leon", salary: 21000, posId: csrPos.id, groupId: groupA.id },
+    { num: "EMP0018", first: "Sheila", last: "Morales", salary: 21000, posId: csrPos.id, groupId: groupA.id },
+    { num: "EMP0019", first: "Kevin", last: "Bautista", salary: 21000, posId: csrPos.id, groupId: groupA.id },
+    { num: "EMP0020", first: "Nicole", last: "Hernandez", salary: 21000, posId: csrPos.id, groupId: groupA.id },
   ];
 
   const empHash = await bcrypt.hash("Employee@123", 12);
@@ -182,6 +226,7 @@ async function main() {
         departmentId: ops.id,
         campaignId: campaign.id,
         positionId: e.posId,
+        groupId: e.groupId,
         bundyPinHash: sha256(pin),
         bundyPinSetAt: new Date(),
         sssNumber: `34-${String(Math.floor(Math.random() * 10000000)).padStart(7, "0")}-0`,

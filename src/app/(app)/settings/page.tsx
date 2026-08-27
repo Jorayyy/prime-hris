@@ -5,6 +5,7 @@ import { SettingsForm, OrgUnitForm } from "./forms";
 import { AddForm, Row as IpRow } from "./ip-forms";
 import { addAllowedIpAction, removeAllowedIpAction, toggleAllowedIpAction } from "@/lib/actions/ips";
 import ShiftTemplateEditor from "./shift-template-editor";
+import GroupManager from "./group-manager";
 
 export const metadata = { title: "Settings" };
 
@@ -14,7 +15,7 @@ export default async function SettingsPage() {
     return <EmptyState title="Not authorized" hint="Settings are restricted to HR and Admin." />;
   }
 
-  const [settings, sites, departments, campaigns, positions, templates, allowedIps] = await Promise.all([
+  const [settings, sites, departments, campaigns, positions, templates, allowedIps, groups] = await Promise.all([
     db.companySettings.findFirst(),
     db.site.findMany({ orderBy: { name: "asc" } }),
     db.department.findMany({ orderBy: { name: "asc" } }),
@@ -22,6 +23,7 @@ export default async function SettingsPage() {
     db.position.findMany({ orderBy: { title: "asc" } }),
     db.shiftTemplate.findMany({ orderBy: { name: "asc" }, include: { _count: { select: { assignments: true } } } }),
     db.bundyAllowedIp.findMany({ orderBy: { createdAt: "asc" } }),
+    db.group.findMany({ orderBy: { name: "asc" }, include: { _count: { select: { employees: true } } } }),
   ]);
 
   return (
@@ -71,6 +73,13 @@ export default async function SettingsPage() {
         </Card>
 
         <Card>
+          <CardHeader title="Payroll Groups" subtitle="Define payroll defaults per group — rate, frequency, night diff, allowances" />
+          <GroupManager groups={groups as any} />
+        </Card>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card>
           <CardHeader title="Shift Templates & Holidays" />
           <div className="space-y-4 p-5">
             <OrgUnitForm
@@ -83,9 +92,7 @@ export default async function SettingsPage() {
           </div>
           <ShiftTemplateEditor templates={templates} />
         </Card>
-      </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader
             title="Bundy Clock - Allowed IPs"
@@ -108,12 +115,12 @@ export default async function SettingsPage() {
             </p>
           )}
         </Card>
-
-        <Card>
-        <CardHeader title="Government Deduction Tables" subtitle="Seeded with current SSS / PhilHealth / Pag-IBIG / BIR tables - update via database when new circulars take effect" />
-          <GovTablesSummary />
-        </Card>
       </div>
+
+      <Card>
+        <CardHeader title="Government Deduction Tables" subtitle="Seeded with current SSS / PhilHealth / Pag-IBIG / BIR tables - update via database when new circulars take effect" />
+        <GovTablesSummary />
+      </Card>
     </div>
   );
 }
@@ -138,4 +145,3 @@ async function GovTablesSummary() {
     </ul>
   );
 }
-

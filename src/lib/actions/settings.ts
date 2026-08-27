@@ -193,3 +193,120 @@ export async function deleteShiftTemplateAction(id: string) {
   revalidatePath("/schedules");
   return { ok: true };
 }
+
+// ==============================
+// GROUPS
+// ==============================
+
+const groupSchema = z.object({
+  name: z.string().min(1, "Name is required").max(100),
+  description: z.string().max(300).optional(),
+  monthlyRate: z.coerce.number().min(0, "Monthly rate is required"),
+  payFrequency: z.enum(["WEEKLY", "BIWEEKLY", "SEMI_MONTHLY", "MONTHLY"]),
+  nightDiffRate: z.coerce.number().min(0).max(1),
+  riceAllowance: z.coerce.number().min(0).default(0),
+  transpoAllowance: z.coerce.number().min(0).default(0),
+  otherAllowance: z.coerce.number().min(0).default(0),
+});
+
+export async function createGroupAction(_prev: { error?: string; ok?: boolean }, formData: FormData) {
+  try {
+    await requireRole("ADMIN", "HR");
+  } catch {
+    throw new ForbiddenError();
+  }
+
+  const parsed = groupSchema.safeParse({
+    name: String(formData.get("name") ?? "").trim(),
+    description: String(formData.get("description") ?? "").trim() || undefined,
+    monthlyRate: formData.get("monthlyRate"),
+    payFrequency: formData.get("payFrequency"),
+    nightDiffRate: formData.get("nightDiffRate"),
+    riceAllowance: formData.get("riceAllowance") ?? 0,
+    transpoAllowance: formData.get("transpoAllowance") ?? 0,
+    otherAllowance: formData.get("otherAllowance") ?? 0,
+  });
+
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Check the group fields." };
+  }
+
+  try {
+    await db.group.create({ data: parsed.data });
+  } catch {
+    return { error: `Could not save — "${parsed.data.name}" may already exist.` };
+  }
+
+  await recordAudit({ action: "CREATE_GROUP", entity: "Group", details: { name: parsed.data.name } });
+  revalidatePath("/settings");
+  return { ok: true };
+}
+
+export async function updateGroupAction(_prev: { error?: string; ok?: boolean }, formData: FormData) {
+  try {
+    await requireRole("ADMIN", "HR");
+  } catch {
+    throw new ForbiddenError();
+  }
+
+  const id = String(formData.get("id") ?? "");
+  if (!id) return { error: "Group ID is required." };
+
+  const parsed = groupSchema.safeParse({
+    name: String(formData.get("name") ?? "").trim(),
+    description: String(formData.get("description") ?? "").trim() || undefined,
+    monthlyRate: formData.get("monthlyRate"),
+    payFrequency: formData.get("payFrequency"),
+    nightDiffRate: formData.get("nightDiffRate"),
+    riceAllowance: formData.get("riceAllowance") ?? 0,
+    transpoAllowance: formData.get("transpoAllowance") ?? 0,
+    otherAllowance: formData.get("otherAllowance") ?? 0,
+  });
+
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Check the group fields." };
+  }
+
+  try {
+    await db.group.update({ where: { id }, data: parsed.data });
+  } catch {
+    return { error: "Group not found or name already exists." };
+  }
+
+  await recordAudit({ action: "UPDATE_GROUP", entity: "Group", details: { id, name: parsed.data.name } });
+  revalidatePath("/settings");
+  return { ok: true };
+}
+
+export async function deleteGroupAction(id: string) {
+  try {
+    await requireRole("ADMIN", "HR");
+  } catch {
+    throw new ForbiddenError();
+  }
+
+  const group = await db.group.findUnique({ where: { id }, include: { _count: { select: { employees: true } } } });
+  if (!group) return { error: "Group not found." };
+
+  if (group._count.employees > 0) {
+    return { error: `Cannot delete — ${group._count.employees} employee(s) are in this group. Reassign them first.` };
+  }
+
+  await db.group.delete({ where: { id } });
+  await recordAudit({ action: "DELETE_GROUP", entity: "Group", details: { id, name: group.name } });
+  revalidatePath("/settings");
+  return { ok: true };
+}
+
+export async function toggleGroupActiveAction(id: string, active: boolean) {
+  try {
+    await requireRole("ADMIN", "HR");
+  } catch {
+    throw new ForbiddenError();
+  }
+
+  await db.group.update({ where: { id }, data: { isActive: active } });
+  await recordAudit({ action: active ? "ACTIVATE_GROUP" : "DEACTIVATE_GROUP", entity: "Group", details: { id } });
+  revalidatePath("/settings");
+  return { ok: true };
+}
