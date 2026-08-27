@@ -36,7 +36,7 @@ const NAV: Array<{ section: string; items: NavItem[] }> = [
     items: [
       { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
       { href: "/me", label: "My Space", icon: UserRound },
-      { href: "/chat", label: "Messages", icon: MessageSquare },
+      { href: "/chat", label: "Messages", icon: MessageSquare, badge: 0 },
     ],
   },
   {
@@ -197,6 +197,11 @@ export default function Sidebar({ role, company, logoUrl }: { role: Role; compan
                           <Badge variant="red" size="sm">
                             {item.badge}
                           </Badge>
+                        )}
+                        {!collapsed && item.badge === 0 && (
+                          <span className="rounded-full bg-warning/10 px-1.5 py-0.5 text-[9px] font-bold text-warning-dark">
+                            SOON
+                          </span>
                         )}
 
                         {/* Tooltip when collapsed */}
