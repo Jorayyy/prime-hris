@@ -66,3 +66,19 @@ export function fullName(e: { firstName: string; lastName: string; middleName?: 
     .filter(Boolean)
     .join(" ");
 }
+
+export function formatDistanceToNow(d: Date | string): string {
+  const now = Date.now();
+  const then = new Date(d).getTime();
+  const diffMs = now - then;
+  const diffSec = Math.floor(diffMs / 1000);
+  const diffMin = Math.floor(diffSec / 60);
+  const diffHr = Math.floor(diffMin / 60);
+  const diffDay = Math.floor(diffHr / 24);
+
+  if (diffSec < 60) return "now";
+  if (diffMin < 60) return `${diffMin}m`;
+  if (diffHr < 24) return `${diffHr}h`;
+  if (diffDay < 7) return `${diffDay}d`;
+  return formatDateOnly(d);
+}

@@ -17,6 +17,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Search,
+  MessageSquare,
 } from "lucide-react";
 import { cx, Badge } from "@/components/ui";
 import type { Role } from "@prisma/client";
@@ -35,6 +36,7 @@ const NAV: Array<{ section: string; items: NavItem[] }> = [
     items: [
       { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
       { href: "/me", label: "My Space", icon: UserRound },
+      { href: "/chat", label: "Messages", icon: MessageSquare },
     ],
   },
   {
