@@ -86,10 +86,17 @@ export default function ChatLayout({ currentUserId }: Props) {
 
   const handleNewMessage = useCallback(
     (convId: string) => {
-      // When receiving a message in a different conversation, refresh list
       loadConversations();
     },
     [loadConversations]
+  );
+
+  const handleDeleteConversation = useCallback(
+    (convId: string) => {
+      setConversations((prev) => prev.filter((c) => c.id !== convId));
+      if (activeConvId === convId) setActiveConvId(null);
+    },
+    [activeConvId]
   );
 
   const activeConv = conversations.find((c) => c.id === activeConvId);
@@ -105,6 +112,7 @@ export default function ChatLayout({ currentUserId }: Props) {
           onlineUsers={onlineUsers}
           currentUserId={currentUserId}
           onNewChat={handleNewChat}
+          onDeleteConversation={handleDeleteConversation}
         />
         {showUserSearch && (
           <UserSearch

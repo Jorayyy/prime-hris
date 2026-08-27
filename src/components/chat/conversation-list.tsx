@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { MessageSquare, Search, Plus } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { MessageSquare, Search, Plus, Trash2 } from "lucide-react";
 import { Avatar, Badge } from "@/components/ui";
 import type { ConversationWithDetails } from "@/lib/actions/chat";
 import { formatDistanceToNow } from "@/lib/format";
+import { getSocket } from "@/lib/socket";
 
 type Props = {
   conversations: ConversationWithDetails[];
@@ -13,6 +14,7 @@ type Props = {
   onlineUsers: string[];
   currentUserId: string;
   onNewChat: () => void;
+  onDeleteConversation: (id: string) => void;
 };
 
 export default function ConversationList({
@@ -22,8 +24,17 @@ export default function ConversationList({
   onlineUsers,
   currentUserId,
   onNewChat,
+  onDeleteConversation,
 }: Props) {
   const [search, setSearch] = useState("");
+  const [contextMenu, setContextMenu] = useState<{ convId: string; x: number; y: number } | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClick = () => setContextMenu(null);
+    document.addEventListener("click", handleClick);
+    return () => document.removeEventListener("click", handleClick);
+  }, []);
 
   const filtered = conversations.filter((c) => {
     if (!search) return true;
@@ -33,6 +44,18 @@ export default function ConversationList({
     const name = `${other.user.firstName ?? ""} ${other.user.lastName ?? ""}`.toLowerCase();
     return name.includes(q) || other.user.email.toLowerCase().includes(q);
   });
+
+  const handleContextMenu = (e: React.MouseEvent, convId: string) => {
+    e.preventDefault();
+    setContextMenu({ convId, x: e.clientX, y: e.clientY });
+  };
+
+  const handleDelete = (convId: string) => {
+    if (!confirm("Delete this conversation?")) return;
+    getSocket().emit("delete_conversation", convId);
+    onDeleteConversation(convId);
+    setContextMenu(null);
+  };
 
   return (
     <div className="flex h-full w-80 flex-col border-r border-border bg-white">
@@ -81,17 +104,13 @@ export default function ConversationList({
               : other
               ? `${other.user.firstName ?? ""} ${other.user.lastName ?? ""}`.trim() || other.user.email
               : "Unknown";
-            const initials = conv.isGroup
-              ? "GC"
-              : other
-              ? `${(other.user.firstName?.[0] ?? "")}${(other.user.lastName?.[0] ?? "")}`.toUpperCase() || "?"
-              : "?";
 
             return (
               <button
                 key={conv.id}
                 onClick={() => onSelect(conv.id)}
-                className={`flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-surface-hover ${
+                onContextMenu={(e) => handleContextMenu(e, conv.id)}
+                className={`group flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-surface-hover ${
                   isActive ? "bg-primary/5 border-r-2 border-primary" : ""
                 }`}
               >
@@ -106,11 +125,22 @@ export default function ConversationList({
                     <span className="truncate text-sm font-semibold text-foreground">
                       {displayName}
                     </span>
-                    {conv.lastMessage && (
-                      <span className="shrink-0 text-[10px] text-muted-light">
-                        {formatDistanceToNow(conv.lastMessage.createdAt)}
-                      </span>
-                    )}
+                    <div className="flex items-center gap-1">
+                      {conv.lastMessage && (
+                        <span className="shrink-0 text-[10px] text-muted-light">
+                          {formatDistanceToNow(conv.lastMessage.createdAt)}
+                        </span>
+                      )}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDelete(conv.id);
+                        }}
+                        className="hidden group-hover:flex h-5 w-5 items-center justify-center rounded text-muted-light hover:text-danger hover:bg-danger/10 transition-colors"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    </div>
                   </div>
                   <div className="mt-0.5 flex items-center justify-between">
                     <p className="truncate text-xs text-muted">
@@ -132,6 +162,23 @@ export default function ConversationList({
           })
         )}
       </div>
+
+      {/* Context Menu */}
+      {contextMenu && (
+        <div
+          ref={menuRef}
+          className="fixed z-50 rounded-lg border border-border bg-white py-1 shadow-lg"
+          style={{ left: contextMenu.x, top: contextMenu.y }}
+        >
+          <button
+            onClick={() => handleDelete(contextMenu.convId)}
+            className="flex w-full items-center gap-2 px-4 py-2 text-sm text-danger hover:bg-danger/5 transition-colors"
+          >
+            <Trash2 className="h-4 w-4" />
+            Delete conversation
+          </button>
+        </div>
+      )}
     </div>
   );
 }

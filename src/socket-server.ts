@@ -157,6 +157,40 @@ io.on("connection", (socket) => {
     }
   });
 
+  // Delete message
+  socket.on("delete_message", async (data: { messageId: string; conversationId: string }) => {
+    try {
+      const message = await prisma.chatMessage.findUnique({ where: { id: data.messageId } });
+      if (!message || message.senderId !== userId) return;
+
+      await prisma.chatMessage.delete({ where: { id: data.messageId } });
+      io.to(`conv:${data.conversationId}`).emit("message_deleted", {
+        messageId: data.messageId,
+        conversationId: data.conversationId,
+      });
+    } catch (err) {
+      console.error("[Chat] delete_message error:", err);
+    }
+  });
+
+  // Delete conversation
+  socket.on("delete_conversation", async (conversationId: string) => {
+    try {
+      const participant = await prisma.chatParticipant.findUnique({
+        where: { conversationId_userId: { conversationId, userId } },
+      });
+      if (!participant) return;
+
+      await prisma.chatMessage.deleteMany({ where: { conversationId } });
+      await prisma.chatParticipant.deleteMany({ where: { conversationId } });
+      await prisma.conversation.delete({ where: { id: conversationId } });
+
+      io.to(`conv:${conversationId}`).emit("conversation_deleted", { conversationId });
+    } catch (err) {
+      console.error("[Chat] delete_conversation error:", err);
+    }
+  });
+
   // Disconnect
   socket.on("disconnect", () => {
     console.log(`[Chat] User disconnected: ${userId} (${socket.id})`);

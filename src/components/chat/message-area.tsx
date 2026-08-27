@@ -1,11 +1,11 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Send, ArrowLeft } from "lucide-react";
+import { Send, ArrowLeft, Trash2, AlertCircle } from "lucide-react";
 import { Avatar } from "@/components/ui";
 import MessageBubble from "./message-bubble";
 import TypingIndicator from "./typing-indicator";
-import { getMessages } from "@/lib/actions/chat";
+import { getMessages, deleteMessage } from "@/lib/actions/chat";
 import { getSocket } from "@/lib/socket";
 
 type Message = Awaited<ReturnType<typeof getMessages>>[number];
@@ -49,6 +49,8 @@ export default function MessageArea({
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(true);
   const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
+  const [socketConnected, setSocketConnected] = useState(false);
+  const [sending, setSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -76,8 +78,22 @@ export default function MessageArea({
   // Socket.io real-time
   useEffect(() => {
     const socket = getSocket();
-    socket.emit("join_conversation", conversationId);
-    socket.emit("mark_read", conversationId);
+
+    socket.on("connect", () => {
+      setSocketConnected(true);
+      socket.emit("join_conversation", conversationId);
+      socket.emit("mark_read", conversationId);
+    });
+
+    socket.on("disconnect", () => {
+      setSocketConnected(false);
+    });
+
+    if (socket.connected) {
+      setSocketConnected(true);
+      socket.emit("join_conversation", conversationId);
+      socket.emit("mark_read", conversationId);
+    }
 
     const handleNewMessage = (msg: Message) => {
       if (msg.conversationId !== conversationId) {
@@ -108,15 +124,25 @@ export default function MessageArea({
       }
     };
 
+    const handleMessageDeleted = (data: { messageId: string; conversationId: string }) => {
+      if (data.conversationId === conversationId) {
+        setMessages((prev) => prev.filter((m) => m.id !== data.messageId));
+      }
+    };
+
     socket.on("new_message", handleNewMessage);
     socket.on("user_typing", handleUserTyping);
     socket.on("user_stop_typing", handleUserStopTyping);
+    socket.on("message_deleted", handleMessageDeleted);
 
     return () => {
       socket.emit("leave_conversation", conversationId);
+      socket.off("connect");
+      socket.off("disconnect");
       socket.off("new_message", handleNewMessage);
       socket.off("user_typing", handleUserTyping);
       socket.off("user_stop_typing", handleUserStopTyping);
+      socket.off("message_deleted", handleMessageDeleted);
     };
   }, [conversationId, currentUserId, onNewMessage]);
 
@@ -133,26 +159,69 @@ export default function MessageArea({
     }, 2000);
   }, [conversationId]);
 
-  const handleSend = useCallback(() => {
+  const handleSend = useCallback(async () => {
     const content = input.trim();
-    if (!content) return;
+    if (!content || sending) return;
 
-    const socket = getSocket();
-    socket.emit("send_message", { conversationId, content }, (response: any) => {
-      if (response?.error) {
-        console.error("Failed to send:", response.error);
-      }
-    });
+    setSending(true);
+    const tempId = `temp-${Date.now()}`;
+    const optimisticMsg: Message = {
+      id: tempId,
+      conversationId,
+      senderId: currentUserId,
+      content,
+      createdAt: new Date(),
+      sender: {
+        id: currentUserId,
+        email: "",
+        employee: { firstName: "", lastName: "", photoUrl: null },
+      },
+    };
 
+    // Optimistic update
+    setMessages((prev) => [...prev, optimisticMsg]);
     setInput("");
+    setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
+
     isTypingRef.current = false;
     getSocket().emit("typing_stop", conversationId);
-
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
       typingTimeoutRef.current = null;
     }
-  }, [input, conversationId]);
+
+    const socket = getSocket();
+    if (socket.connected) {
+      socket.emit("send_message", { conversationId, content }, (response: any) => {
+        setSending(false);
+        if (response?.error) {
+          console.error("Failed to send:", response.error);
+          // Remove optimistic message on failure
+          setMessages((prev) => prev.filter((m) => m.id !== tempId));
+        } else if (response?.id) {
+          // Replace temp with real message
+          setMessages((prev) =>
+            prev.map((m) => (m.id === tempId ? { ...response, createdAt: new Date(response.createdAt) } : m))
+          );
+        }
+      });
+    } else {
+      // Socket not connected — message already shown optimistically
+      // It will sync when socket reconnects
+      setSending(false);
+    }
+  }, [input, conversationId, currentUserId, sending]);
+
+  const handleDelete = useCallback(async (messageId: string) => {
+    if (!confirm("Delete this message?")) return;
+    try {
+      await deleteMessage(messageId, conversationId);
+      setMessages((prev) => prev.filter((m) => m.id !== messageId));
+      getSocket().emit("delete_message", { messageId, conversationId });
+    } catch (err) {
+      console.error("Failed to delete:", err);
+    }
+  }, [conversationId]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -191,6 +260,12 @@ export default function MessageArea({
             {isOnline ? "Online" : isGroup ? `${participants.length} members` : "Offline"}
           </p>
         </div>
+        {!socketConnected && (
+          <div className="flex items-center gap-1 rounded-full bg-warning/10 px-2 py-1">
+            <AlertCircle className="h-3 w-3 text-warning" />
+            <span className="text-[10px] font-medium text-warning-dark">Reconnecting...</span>
+          </div>
+        )}
       </div>
 
       {/* Messages */}
@@ -225,6 +300,7 @@ export default function MessageArea({
                   message={msg}
                   isOwn={isOwn}
                   showSender={showSender}
+                  onDelete={isOwn ? () => handleDelete(msg.id) : undefined}
                 />
               );
             })}
@@ -254,7 +330,7 @@ export default function MessageArea({
           />
           <button
             onClick={handleSend}
-            disabled={!input.trim()}
+            disabled={!input.trim() || sending}
             className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary text-white transition-all hover:bg-primary-dark disabled:opacity-40 disabled:pointer-events-none"
           >
             <Send className="h-4 w-4" />

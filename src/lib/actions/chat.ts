@@ -251,3 +251,42 @@ export async function searchUsers(query: string) {
     employeeNumber: u.employee?.employeeNumber ?? null,
   }));
 }
+
+export async function deleteMessage(messageId: string, conversationId: string) {
+  const user = await requireUser();
+
+  // Verify participant
+  const participant = await db.chatParticipant.findUnique({
+    where: {
+      conversationId_userId: { conversationId, userId: user.id },
+    },
+  });
+
+  if (!participant) throw new Error("Not a participant");
+
+  // Verify ownership
+  const message = await db.chatMessage.findUnique({
+    where: { id: messageId },
+  });
+
+  if (!message || message.senderId !== user.id) throw new Error("Can only delete your own messages");
+
+  await db.chatMessage.delete({ where: { id: messageId } });
+}
+
+export async function deleteConversation(conversationId: string) {
+  const user = await requireUser();
+
+  const participant = await db.chatParticipant.findUnique({
+    where: {
+      conversationId_userId: { conversationId, userId: user.id },
+    },
+  });
+
+  if (!participant) throw new Error("Not a participant");
+
+  // Delete all messages first, then participants, then conversation
+  await db.chatMessage.deleteMany({ where: { conversationId } });
+  await db.chatParticipant.deleteMany({ where: { conversationId } });
+  await db.conversation.delete({ where: { id: conversationId } });
+}
