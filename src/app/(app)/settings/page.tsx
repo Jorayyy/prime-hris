@@ -25,15 +25,15 @@ export default async function SettingsPage() {
   ]);
 
   return (
-    <>
-      <div className="mb-6">
+    <div className="space-y-6">
+      <div>
         <h1 className="text-xl font-bold tracking-tight">Settings</h1>
         <p className="mt-1 text-sm text-[var(--muted)]">
           Company identity (used across the bundy page and payslips), payroll configuration, and org structure.
         </p>
       </div>
 
-      <Card className="mb-6">
+      <Card>
         <CardHeader title="Company Profile" subtitle="The company name here customizes the whole system" />
         <SettingsForm
           settings={
@@ -114,7 +114,7 @@ export default async function SettingsPage() {
           <GovTablesSummary />
         </Card>
       </div>
-    </>
+    </div>
   );
 }
 
