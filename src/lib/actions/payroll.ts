@@ -339,3 +339,209 @@ export async function addAdjustmentAction(_prev: { error?: string }, formData: F
   revalidatePath("/payroll");
   return {};
 }
+
+// ---- Process by Group ----
+
+const processGroupSchema = z.object({
+  periodId: z.string().min(1),
+  groupId: z.string().min(1),
+  siteId: z.string().min(1),
+});
+
+export async function processGroupAction(_prev: { error?: string; ok?: boolean }, formData: FormData) {
+  try {
+    await requireRole("ADMIN", "PAYROLL");
+  } catch {
+    throw new ForbiddenError();
+  }
+
+  const parsed = processGroupSchema.safeParse({
+    periodId: String(formData.get("periodId") ?? ""),
+    groupId: String(formData.get("groupId") ?? ""),
+    siteId: String(formData.get("siteId") ?? ""),
+  });
+  if (!parsed.success) return { error: "All fields are required." };
+
+  const period = await db.payPeriod.findUnique({ where: { id: parsed.data.periodId } });
+  if (!period) return { error: "Pay period not found." };
+  if (!["DRAFT", "PROCESSING"].includes(period.status)) {
+    return { error: "Only DRAFT or PROCESSING periods can be processed." };
+  }
+
+  const group = await db.group.findUnique({ where: { id: parsed.data.groupId } });
+  if (!group) return { error: "Group not found." };
+  if (group.siteId !== parsed.data.siteId) return { error: "Group does not belong to the selected site." };
+
+  // Check if this group+site was already processed
+  const existing = await db.processedGroup.findUnique({
+    where: { payPeriodId_groupId_siteId: { payPeriodId: parsed.data.periodId, groupId: parsed.data.groupId, siteId: parsed.data.siteId } },
+  });
+  if (existing) return { error: "This group has already been processed for this period." };
+
+  // Set period to PROCESSING
+  await db.payPeriod.update({ where: { id: period.id }, data: { status: "PROCESSING" } });
+
+  // Find employees in this site + group
+  const employees = await db.employee.findMany({
+    where: { status: "ACTIVE", userId: { not: null }, siteId: parsed.data.siteId, groupId: parsed.data.groupId },
+    include: { user: { select: { email: true } } },
+  });
+
+  if (employees.length === 0) {
+    return { error: "No active employees found in this group at this site." };
+  }
+
+  const holidays = await db.holiday.findMany({
+    where: { date: { gte: period.startDate, lte: period.endDate } },
+  });
+
+  let processed = 0;
+  let errorCount = 0;
+
+  for (const emp of employees) {
+    try {
+      const attendance = await db.attendanceDaily.findMany({
+        where: { employeeId: emp.id, workDate: { gte: period.startDate, lt: addDays(period.endDate, 1) } },
+      });
+
+      const presentDays = attendance.filter((a) => ["PRESENT", "LATE"].includes(a.status)).length;
+      const paidLeaveDays = attendance.filter((a) => a.status === "ON_LEAVE").length;
+      const absentDays = attendance.filter((a) => a.status === "ABSENT").length;
+      const lateMinutes = attendance.reduce((s, a) => s + a.lateMinutes, 0);
+      const undertimeMinutes = attendance.reduce((s, a) => s + a.undertimeMinutes, 0);
+      const ndMinutes = attendance.reduce((s, a) => s + a.nightDiffMinutes, 0);
+
+      const otRequests = await db.overtimeRequest.findMany({
+        where: {
+          employeeId: emp.id,
+          status: "APPROVED",
+          workDate: { gte: period.startDate, lt: addDays(period.endDate, 1) },
+        },
+      });
+      const otHours = otRequests.reduce((s, r) => s + Number(r.approvedHours ?? 0), 0);
+
+      let unworkedRegularHolidayDays = 0;
+      let workedRegularHolidayDays = 0;
+      let specialHolidaysWorkedDays = 0;
+      const isRegularEmp = emp.employmentType === "REGULAR";
+
+      for (const h of holidays) {
+        const dayAtt = attendance.find((a) => formatDateOnly(a.workDate) === formatDateOnly(h.date));
+        const worked = dayAtt && ["PRESENT", "LATE"].includes(dayAtt.status);
+        if (h.type === "REGULAR" || h.type === "DOUBLE_HOLIDAY") {
+          if (worked) workedRegularHolidayDays++;
+          else if (isRegularEmp) unworkedRegularHolidayDays++;
+        } else if ((h.type === "SPECIAL_NON_WORKING" || h.type === "SPECIAL_HOLIDAY") && worked) {
+          specialHolidaysWorkedDays++;
+        }
+      }
+
+      void absentDays;
+
+      const monthlyRate = Number(group.monthlyRate);
+      const result = computePayslip({
+        monthlyRate,
+        payFrequency: group.payFrequency as PayFrequencyCode,
+        daysWorked: presentDays,
+        paidLeaveDays,
+        lateMinutes,
+        undertimeMinutes,
+        nightDiffMinutes: ndMinutes,
+        approvedOvertimeHours: otHours,
+        unworkedRegularHolidayDays,
+        workedRegularHolidayDays,
+        specialHolidaysWorkedDays,
+        taxableEarnings: [],
+        nonTaxableEarnings: [],
+        deductions: [],
+        thirteenthMonthYtd: 0,
+        graceMinutes: 5,
+      });
+
+      const yearStart = new Date(new Date(period.startDate).getFullYear(), 0, 1);
+      const priorBasic = await db.payslip.aggregate({
+        _sum: { basicPay: true },
+        where: {
+          employeeId: emp.id,
+          payPeriod: { startDate: { gte: yearStart, lt: period.startDate }, status: { in: ["APPROVED", "PAID"] } },
+        },
+      });
+      const ytd13th = compute13thMonth(Number(priorBasic._sum.basicPay ?? 0) + result.basicPay);
+
+      // Upsert payslip (skip if already exists for this employee+period)
+      await db.payslip.upsert({
+        where: { payPeriodId_employeeId: { payPeriodId: period.id, employeeId: emp.id } },
+        update: {
+          monthlyRate,
+          dailyRate: result.dailyRate,
+          hourlyRate: result.hourlyRate,
+          daysWorked: presentDays + paidLeaveDays,
+          basicPay: result.basicPay,
+          nightDiffPay: result.nightDiffPay,
+          overtimePay: result.overtimePay,
+          holidayPay: result.holidayPay,
+          grossPay: result.grossPay,
+          lateAbsenceDeduction: result.lateAbsenceDeduction,
+          sssContribution: result.sss,
+          philhealthContribution: result.philhealth,
+          pagibigContribution: result.pagibig,
+          withholdingTax: result.withholdingTax,
+          totalDeductions: result.totalDeductions,
+          netPay: result.netPay,
+          thirteenthMonthYTD: ytd13th,
+        },
+        create: {
+          payPeriodId: period.id,
+          employeeId: emp.id,
+          monthlyRate,
+          dailyRate: result.dailyRate,
+          hourlyRate: result.hourlyRate,
+          daysWorked: presentDays + paidLeaveDays,
+          basicPay: result.basicPay,
+          nightDiffPay: result.nightDiffPay,
+          overtimePay: result.overtimePay,
+          holidayPay: result.holidayPay,
+          grossPay: result.grossPay,
+          lateAbsenceDeduction: result.lateAbsenceDeduction,
+          sssContribution: result.sss,
+          philhealthContribution: result.philhealth,
+          pagibigContribution: result.pagibig,
+          withholdingTax: result.withholdingTax,
+          totalDeductions: result.totalDeductions,
+          netPay: result.netPay,
+          thirteenthMonthYTD: ytd13th,
+        },
+      });
+
+      processed++;
+    } catch {
+      errorCount++;
+    }
+  }
+
+  // Record that this group was processed
+  await db.processedGroup.create({
+    data: {
+      payPeriodId: period.id,
+      groupId: parsed.data.groupId,
+      siteId: parsed.data.siteId,
+      employeeCount: processed,
+    },
+  });
+
+  await recordAudit({
+    action: "PROCESS_GROUP_PAYROLL",
+    entity: "PayPeriod",
+    entityId: period.id,
+    details: { groupId: parsed.data.groupId, siteId: parsed.data.siteId, group: group.name, processed, errorCount },
+  });
+
+  await db.payPeriod.update({
+    where: { id: period.id },
+    data: { status: "PROCESSING" },
+  });
+
+  revalidatePath(`/payroll/${period.id}`);
+  revalidatePath("/payroll");
+  return { ok: true };
+}

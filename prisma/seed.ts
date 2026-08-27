@@ -132,10 +132,11 @@ async function main() {
 
   // ---------- Payroll Groups ----------
   const groupA = await db.group.upsert({
-    where: { name: "Group A - CSR" },
+    where: { name_siteId: { name: "Group A - CSR", siteId: site.id } },
     update: {},
     create: {
       name: "Group A - CSR",
+      siteId: site.id,
       description: "Standard CSR team — weekly pay, basic allowances",
       monthlyRate: 21000,
       payFrequency: "WEEKLY",
@@ -146,10 +147,11 @@ async function main() {
     },
   });
   const groupB = await db.group.upsert({
-    where: { name: "Group B - Senior CSR" },
+    where: { name_siteId: { name: "Group B - Senior CSR", siteId: site.id } },
     update: {},
     create: {
       name: "Group B - Senior CSR",
+      siteId: site.id,
       description: "Senior CSR team — weekly pay, higher rate + allowances",
       monthlyRate: 23000,
       payFrequency: "WEEKLY",
@@ -160,10 +162,11 @@ async function main() {
     },
   });
   const groupC = await db.group.upsert({
-    where: { name: "Group C - Leadership" },
+    where: { name_siteId: { name: "Group C - Leadership", siteId: site.id } },
     update: {},
     create: {
       name: "Group C - Leadership",
+      siteId: site.id,
       description: "Team Leads and managers — semi-monthly pay",
       monthlyRate: 32000,
       payFrequency: "SEMI_MONTHLY",

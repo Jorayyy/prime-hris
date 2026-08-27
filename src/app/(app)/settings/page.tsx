@@ -74,7 +74,7 @@ export default async function SettingsPage() {
 
         <Card>
           <CardHeader title="Payroll Groups" subtitle="Define payroll defaults per group — rate, frequency, night diff, allowances" />
-          <GroupManager groups={groups as any} />
+          <GroupManager groups={groups as any} sites={sites as any} />
         </Card>
       </div>
 

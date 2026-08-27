@@ -200,6 +200,7 @@ export async function deleteShiftTemplateAction(id: string) {
 
 const groupSchema = z.object({
   name: z.string().min(1, "Name is required").max(100),
+  siteId: z.string().min(1, "Site is required"),
   description: z.string().max(300).optional(),
   monthlyRate: z.coerce.number().min(0, "Monthly rate is required"),
   payFrequency: z.enum(["WEEKLY", "BIWEEKLY", "SEMI_MONTHLY", "MONTHLY"]),
@@ -218,6 +219,7 @@ export async function createGroupAction(_prev: { error?: string; ok?: boolean },
 
   const parsed = groupSchema.safeParse({
     name: String(formData.get("name") ?? "").trim(),
+    siteId: String(formData.get("siteId") ?? ""),
     description: String(formData.get("description") ?? "").trim() || undefined,
     monthlyRate: formData.get("monthlyRate"),
     payFrequency: formData.get("payFrequency"),
@@ -234,7 +236,7 @@ export async function createGroupAction(_prev: { error?: string; ok?: boolean },
   try {
     await db.group.create({ data: parsed.data });
   } catch {
-    return { error: `Could not save — "${parsed.data.name}" may already exist.` };
+    return { error: `Could not save — "${parsed.data.name}" may already exist at this site.` };
   }
 
   await recordAudit({ action: "CREATE_GROUP", entity: "Group", details: { name: parsed.data.name } });
@@ -254,6 +256,7 @@ export async function updateGroupAction(_prev: { error?: string; ok?: boolean },
 
   const parsed = groupSchema.safeParse({
     name: String(formData.get("name") ?? "").trim(),
+    siteId: String(formData.get("siteId") ?? ""),
     description: String(formData.get("description") ?? "").trim() || undefined,
     monthlyRate: formData.get("monthlyRate"),
     payFrequency: formData.get("payFrequency"),
@@ -270,7 +273,7 @@ export async function updateGroupAction(_prev: { error?: string; ok?: boolean },
   try {
     await db.group.update({ where: { id }, data: parsed.data });
   } catch {
-    return { error: "Group not found or name already exists." };
+    return { error: "Group not found or name already exists at this site." };
   }
 
   await recordAudit({ action: "UPDATE_GROUP", entity: "Group", details: { id, name: parsed.data.name } });

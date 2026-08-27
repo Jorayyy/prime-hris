@@ -4,6 +4,7 @@ import { getSessionUser, PAYROLL_ROLES } from "@/lib/auth";
 import { Card, CardHeader, Badge, statusTone, EmptyState } from "@/components/ui";
 import { formatDate } from "@/lib/format";
 import NewPayPeriodForm from "./new-period-form";
+import ProcessGroupModal from "./process-group-modal";
 
 export const metadata = { title: "Payroll" };
 
@@ -13,12 +14,20 @@ export default async function PayrollPage() {
     return <EmptyState title="Not authorized" hint="Payroll is restricted to payroll officers and admins." />;
   }
 
-  const periods = await db.payPeriod.findMany({
-    orderBy: { startDate: "desc" },
-    include: {
-      _count: { select: { payslips: true } },
-    },
-  });
+  const [periods, sites, groups] = await Promise.all([
+    db.payPeriod.findMany({
+      orderBy: { startDate: "desc" },
+      include: {
+        _count: { select: { payslips: true } },
+        processedGroups: { include: { group: true, site: true } },
+      },
+    }),
+    db.site.findMany({ orderBy: { name: "asc" } }),
+    db.group.findMany({
+      orderBy: { name: "asc" },
+      include: { _count: { select: { employees: true } } },
+    }),
+  ]);
 
   return (
     <>
@@ -48,7 +57,9 @@ export default async function PayrollPage() {
                   <th className="px-5 py-3 font-semibold">Pay Date</th>
                   <th className="px-5 py-3 font-semibold">Frequency</th>
                   <th className="px-5 py-3 font-semibold">Payslips</th>
+                  <th className="px-5 py-3 font-semibold">Groups Processed</th>
                   <th className="px-5 py-3 font-semibold">Status</th>
+                  <th className="px-5 py-3 font-semibold">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--border)]">
@@ -63,7 +74,31 @@ export default async function PayrollPage() {
                     <td className="px-5 py-3">{p.frequency.replace(/_/g, " ")}</td>
                     <td className="px-5 py-3 tabular-nums">{p._count.payslips}</td>
                     <td className="px-5 py-3">
+                      {p.processedGroups.length === 0 ? (
+                        <span className="text-xs text-muted">None</span>
+                      ) : (
+                        <div className="flex flex-wrap gap-1">
+                          {p.processedGroups.map((pg) => (
+                            <span key={pg.id} className="inline-flex items-center gap-1 rounded-md bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">
+                              {pg.site.name}: {pg.group.name}
+                              <span className="text-muted">({pg.employeeCount})</span>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-5 py-3">
                       <Badge tone={statusTone(p.status)}>{p.status.replace(/_/g, " ")}</Badge>
+                    </td>
+                    <td className="px-5 py-3">
+                      {["DRAFT", "PROCESSING"].includes(p.status) && (
+                        <ProcessGroupModal
+                          periodId={p.id}
+                          sites={sites}
+                          groups={groups as any}
+                          processed={p.processedGroups.map((pg) => ({ groupId: pg.groupId, siteId: pg.siteId }))}
+                        />
+                      )}
                     </td>
                   </tr>
                 ))}

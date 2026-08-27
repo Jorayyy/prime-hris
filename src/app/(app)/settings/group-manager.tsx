@@ -2,14 +2,18 @@
 
 import { useActionState, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Pencil, Trash2, X, Users, ToggleLeft, ToggleRight } from "lucide-react";
+import { Plus, Pencil, Trash2, X, Users, ToggleLeft, ToggleRight, MapPin } from "lucide-react";
 import { cx } from "@/components/ui";
 import { createGroupAction, updateGroupAction, deleteGroupAction, toggleGroupActiveAction } from "@/lib/actions/settings";
+
+type Site = { id: string; name: string };
 
 type Group = {
   id: string;
   name: string;
   description: string | null;
+  siteId: string;
+  site: { name: string };
   monthlyRate: number;
   payFrequency: string;
   nightDiffRate: number;
@@ -30,6 +34,7 @@ const FREQ_LABELS: Record<string, string> = {
 const EMPTY_FORM = {
   name: "",
   description: "",
+  siteId: "",
   monthlyRate: "",
   payFrequency: "WEEKLY",
   nightDiffRate: "0.10",
@@ -38,13 +43,12 @@ const EMPTY_FORM = {
   otherAllowance: "",
 };
 
-export default function GroupManager({ groups }: { groups: Group[] }) {
+export default function GroupManager({ groups, sites }: { groups: Group[]; sites: Site[] }) {
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState<Group | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [createState, createFormAction, createPending] = useActionState(createGroupAction, {} as { error?: string; ok?: boolean });
   const [updateState, updateFormAction, updatePending] = useActionState(updateGroupAction, {} as { error?: string; ok?: boolean });
-  const [deleteId, setDeleteId] = useState<string | null>(null);
 
   function openAdd() {
     setEditing(null);
@@ -57,6 +61,7 @@ export default function GroupManager({ groups }: { groups: Group[] }) {
     setForm({
       name: g.name,
       description: g.description ?? "",
+      siteId: g.siteId,
       monthlyRate: String(g.monthlyRate),
       payFrequency: g.payFrequency,
       nightDiffRate: String(g.nightDiffRate),
@@ -81,84 +86,98 @@ export default function GroupManager({ groups }: { groups: Group[] }) {
   const action = editing ? updateFormAction : createFormAction;
   const pending = editing ? updatePending : createPending;
 
+  // Group by site
+  const grouped = groups.reduce<Record<string, Group[]>>((acc, g) => {
+    (acc[g.site.name] ??= []).push(g);
+    return acc;
+  }, {});
+
   return (
     <>
       <div className="flex items-center justify-between p-5">
-        <div>
-          <p className="text-sm text-muted">{groups.length} group(s) defined</p>
-        </div>
+        <p className="text-sm text-muted">{groups.length} group(s) across {Object.keys(grouped).length} site(s)</p>
         <button onClick={openAdd} className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-dark transition-colors">
           <Plus className="h-4 w-4" /> Add Group
         </button>
       </div>
 
       {groups.length === 0 ? (
-        <p className="px-5 pb-5 text-sm text-muted">No groups yet. Add one to define payroll defaults for a team.</p>
+        <p className="px-5 pb-5 text-sm text-muted">No groups yet. Add one to define payroll defaults for a team at a site.</p>
       ) : (
-        <div className="grid gap-3 px-5 pb-5 sm:grid-cols-2">
-          {groups.map((g, i) => (
-            <motion.div
-              key={g.id}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.05 }}
-              className={cx(
-                "rounded-xl border p-4 transition-all",
-                g.isActive ? "border-border bg-white hover:shadow-md" : "border-border bg-gray-50 opacity-60"
-              )}
-            >
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
-                    <Users className="h-4 w-4 text-primary" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-bold text-foreground">{g.name}</p>
-                    {g.description && <p className="text-xs text-muted">{g.description}</p>}
-                  </div>
-                </div>
-                <div className="flex items-center gap-1">
-                  <button onClick={() => openEdit(g)} className="rounded-lg p-1.5 text-muted hover:bg-surface-hover hover:text-foreground transition-colors" title="Edit">
-                    <Pencil className="h-3.5 w-3.5" />
-                  </button>
-                  <button onClick={() => handleDelete(g.id)} className="rounded-lg p-1.5 text-muted hover:bg-danger/10 hover:text-danger transition-colors" title="Delete">
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                </div>
+        <div className="space-y-4 px-5 pb-5">
+          {Object.entries(grouped).map(([siteName, siteGroups]) => (
+            <div key={siteName}>
+              <div className="flex items-center gap-2 mb-2">
+                <MapPin className="h-3.5 w-3.5 text-muted" />
+                <p className="text-xs font-bold uppercase tracking-wide text-muted">{siteName}</p>
               </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {siteGroups.map((g, i) => (
+                  <motion.div
+                    key={g.id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.05 }}
+                    className={cx(
+                      "rounded-xl border p-4 transition-all",
+                      g.isActive ? "border-border bg-white hover:shadow-md" : "border-border bg-gray-50 opacity-60"
+                    )}
+                  >
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
+                          <Users className="h-4 w-4 text-primary" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold text-foreground">{g.name}</p>
+                          {g.description && <p className="text-xs text-muted">{g.description}</p>}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => openEdit(g)} className="rounded-lg p-1.5 text-muted hover:bg-surface-hover hover:text-foreground transition-colors" title="Edit">
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                        <button onClick={() => handleDelete(g.id)} className="rounded-lg p-1.5 text-muted hover:bg-danger/10 hover:text-danger transition-colors" title="Delete">
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </div>
 
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <div className="rounded-lg bg-slate-50 px-3 py-2">
-                  <p className="text-muted">Monthly Rate</p>
-                  <p className="font-bold text-foreground">₱{Number(g.monthlyRate).toLocaleString()}</p>
-                </div>
-                <div className="rounded-lg bg-slate-50 px-3 py-2">
-                  <p className="text-muted">Pay Frequency</p>
-                  <p className="font-bold text-foreground">{FREQ_LABELS[g.payFrequency] ?? g.payFrequency}</p>
-                </div>
-                <div className="rounded-lg bg-slate-50 px-3 py-2">
-                  <p className="text-muted">Night Diff</p>
-                  <p className="font-bold text-foreground">{(Number(g.nightDiffRate) * 100).toFixed(0)}%</p>
-                </div>
-                <div className="rounded-lg bg-slate-50 px-3 py-2">
-                  <p className="text-muted">Allowances</p>
-                  <p className="font-bold text-foreground">
-                    ₱{Number(g.riceAllowance + g.transpoAllowance + g.otherAllowance).toLocaleString()}
-                  </p>
-                </div>
-              </div>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div className="rounded-lg bg-slate-50 px-3 py-2">
+                        <p className="text-muted">Monthly Rate</p>
+                        <p className="font-bold text-foreground">₱{Number(g.monthlyRate).toLocaleString()}</p>
+                      </div>
+                      <div className="rounded-lg bg-slate-50 px-3 py-2">
+                        <p className="text-muted">Pay Frequency</p>
+                        <p className="font-bold text-foreground">{FREQ_LABELS[g.payFrequency] ?? g.payFrequency}</p>
+                      </div>
+                      <div className="rounded-lg bg-slate-50 px-3 py-2">
+                        <p className="text-muted">Night Diff</p>
+                        <p className="font-bold text-foreground">{(Number(g.nightDiffRate) * 100).toFixed(0)}%</p>
+                      </div>
+                      <div className="rounded-lg bg-slate-50 px-3 py-2">
+                        <p className="text-muted">Allowances</p>
+                        <p className="font-bold text-foreground">
+                          ₱{Number(g.riceAllowance + g.transpoAllowance + g.otherAllowance).toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
 
-              <div className="mt-3 flex items-center justify-between">
-                <span className="text-xs text-muted">{g._count.employees} employee(s)</span>
-                <button
-                  onClick={() => toggleGroupActiveAction(g.id, !g.isActive)}
-                  className="flex items-center gap-1 text-xs text-muted hover:text-foreground transition-colors"
-                >
-                  {g.isActive ? <ToggleRight className="h-5 w-5 text-primary" /> : <ToggleLeft className="h-5 w-5" />}
-                  {g.isActive ? "Active" : "Inactive"}
-                </button>
+                    <div className="mt-3 flex items-center justify-between">
+                      <span className="text-xs text-muted">{g._count.employees} employee(s)</span>
+                      <button
+                        onClick={() => toggleGroupActiveAction(g.id, !g.isActive)}
+                        className="flex items-center gap-1 text-xs text-muted hover:text-foreground transition-colors"
+                      >
+                        {g.isActive ? <ToggleRight className="h-5 w-5 text-primary" /> : <ToggleLeft className="h-5 w-5" />}
+                        {g.isActive ? "Active" : "Inactive"}
+                      </button>
+                    </div>
+                  </motion.div>
+                ))}
               </div>
-            </motion.div>
+            </div>
           ))}
         </div>
       )}
@@ -189,6 +208,16 @@ export default function GroupManager({ groups }: { groups: Group[] }) {
                 }}
                 className="max-h-[70vh] overflow-y-auto px-6 py-5 space-y-4"
               >
+                <div>
+                  <label className="label">Site *</label>
+                  <select name="siteId" value={form.siteId} onChange={(e) => setForm({ ...form, siteId: e.target.value })} required className="field">
+                    <option value="">Select a site</option>
+                    {sites.map((s) => (
+                      <option key={s.id} value={s.id}>{s.name}</option>
+                    ))}
+                  </select>
+                </div>
+
                 <div>
                   <label className="label">Group Name *</label>
                   <input name="name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required maxLength={100} className="field" placeholder="e.g., Team Alpha" />
