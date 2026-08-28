@@ -13,7 +13,7 @@
     "dependencies": {
         "@prisma/client": "^6.19.3",
         "@tailwindcss/postcss": "^4",
-        "bcryptjs": "^3.0.3",
+        "bcryptjs": "^2.4.3",
         "class-variance-authority": "^0.7.1",
         "dotenv": "^17.4.2",
         "framer-motion": "^13.1.1",
