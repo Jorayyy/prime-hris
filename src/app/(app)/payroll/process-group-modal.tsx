@@ -1,8 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Play, Loader2, CheckCircle } from "lucide-react";
+import { X, Play, Loader2, CheckCircle, ExternalLink } from "lucide-react";
 import { processGroupAction } from "@/lib/actions/payroll";
 
 type Site = { id: string; name: string };
@@ -136,13 +137,21 @@ export default function ProcessGroupModal({
 
                 <div className="flex justify-end gap-3 pt-2 border-t border-border">
                   {state?.ok && !pending ? (
-                    <button
-                      type="button"
-                      onClick={() => { setOpen(false); setSelectedSite(""); setSelectedGroupName(""); }}
-                      className="rounded-lg bg-primary px-5 py-2 text-sm font-bold text-white hover:bg-primary-dark transition-colors"
-                    >
-                      Done
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <Link
+                        href={`/payroll/${periodId}`}
+                        className="flex items-center gap-1.5 rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-surface-hover transition-colors"
+                      >
+                        <ExternalLink className="h-3.5 w-3.5" /> View Payslips
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() => { setOpen(false); setSelectedSite(""); setSelectedGroupName(""); }}
+                        className="rounded-lg bg-primary px-5 py-2 text-sm font-bold text-white hover:bg-primary-dark transition-colors"
+                      >
+                        Done
+                      </button>
+                    </div>
                   ) : (
                     <>
                       <button type="button" onClick={() => setOpen(false)} className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-muted hover:bg-surface-hover transition-colors">
