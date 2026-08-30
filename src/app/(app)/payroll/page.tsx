@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Eye } from "lucide-react";
 import { db } from "@/lib/db";
 import { getSessionUser, PAYROLL_ROLES } from "@/lib/auth";
 import { Card, CardHeader, Badge, statusTone, EmptyState } from "@/components/ui";
@@ -88,17 +89,29 @@ export default async function PayrollPage() {
                       )}
                     </td>
                     <td className="px-5 py-3">
-                      <Badge tone={statusTone(p.status)}>{p.status.replace(/_/g, " ")}</Badge>
+                      <Badge tone={statusTone(p.status)}>
+                        {p._count.payslips > 0 && p.status === "PROCESSING" ? "PROCESSED" : p.status.replace(/_/g, " ")}
+                      </Badge>
                     </td>
                     <td className="px-5 py-3">
-                      {["DRAFT", "PROCESSING"].includes(p.status) && (
-                        <ProcessGroupModal
-                          periodId={p.id}
-                          sites={sites}
-                          groups={groups as any}
-                          processed={p.processedGroups.map((pg) => ({ groupId: pg.groupId, siteId: pg.siteId }))}
-                        />
-                      )}
+                      <div className="flex items-center gap-2">
+                        {p._count.payslips > 0 && (
+                          <Link
+                            href={`/payroll/${p.id}`}
+                            className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-surface-hover transition-colors"
+                          >
+                            <Eye className="h-3.5 w-3.5" /> View Payslips
+                          </Link>
+                        )}
+                        {["DRAFT", "PROCESSING"].includes(p.status) && (
+                          <ProcessGroupModal
+                            periodId={p.id}
+                            sites={sites}
+                            groups={groups as any}
+                            processed={p.processedGroups.map((pg) => ({ groupId: pg.groupId, siteId: pg.siteId }))}
+                          />
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
