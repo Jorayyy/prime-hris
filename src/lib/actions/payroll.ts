@@ -536,10 +536,19 @@ export async function processGroupAction(_prev: { error?: string; ok?: boolean }
     details: { groupId: parsed.data.groupId, siteId: parsed.data.siteId, group: group.name, processed, errorCount },
   });
 
-  await db.payPeriod.update({
-    where: { id: period.id },
-    data: { status: "PROCESSING" },
+  // Check if all groups at this site are now processed
+  const totalGroups = await db.group.count({ where: { siteId: parsed.data.siteId, isActive: true } });
+  const processedGroups = await db.processedGroup.count({
+    where: { payPeriodId: period.id, siteId: parsed.data.siteId },
   });
+
+  if (processedGroups >= totalGroups) {
+    // All groups at this site processed — advance to FOR_APPROVAL
+    await db.payPeriod.update({
+      where: { id: period.id },
+      data: { status: "FOR_APPROVAL", processedBy: user.id, processedAt: new Date() },
+    });
+  }
 
   revalidatePath(`/payroll/${period.id}`);
   revalidatePath("/payroll");
