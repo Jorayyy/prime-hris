@@ -349,8 +349,9 @@ const processGroupSchema = z.object({
 });
 
 export async function processGroupAction(_prev: { error?: string; ok?: boolean }, formData: FormData) {
+  let user;
   try {
-    await requireRole("ADMIN", "PAYROLL");
+    user = await requireRole("ADMIN", "PAYROLL");
   } catch {
     throw new ForbiddenError();
   }
