@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Play, MapPin, Users } from "lucide-react";
+import { X, Play, Loader2 } from "lucide-react";
 import { processGroupAction } from "@/lib/actions/payroll";
 
 type Site = { id: string; name: string };
@@ -65,20 +65,17 @@ export default function ProcessGroupModal({
 
                 <div>
                   <label className="label">Select Site *</label>
-                  <div className="relative">
-                    <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted" />
-                    <select
-                      name="siteId"
-                      value={selectedSite}
-                      onChange={(e) => setSelectedSite(e.target.value)}
-                      className="field pl-9"
-                    >
-                      <option value="">Choose a site...</option>
-                      {sites.map((s) => (
-                        <option key={s.id} value={s.id}>{s.name}</option>
-                      ))}
-                    </select>
-                  </div>
+                  <select
+                    name="siteId"
+                    value={selectedSite}
+                    onChange={(e) => setSelectedSite(e.target.value)}
+                    className="field"
+                  >
+                    <option value="">Choose a site...</option>
+                    {sites.map((s) => (
+                      <option key={s.id} value={s.id}>{s.name}</option>
+                    ))}
+                  </select>
                 </div>
 
                 {selectedSite && (
@@ -123,7 +120,13 @@ export default function ProcessGroupModal({
                 )}
 
                 {state?.error && <p className="text-sm font-medium text-danger">{state.error}</p>}
-                {state?.ok && <p className="text-sm font-medium text-success">Group processed successfully!</p>}
+                {pending && (
+                  <div className="flex items-center gap-2 text-sm text-primary">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>Processing payroll... This may take a moment.</span>
+                  </div>
+                )}
+                {state?.ok && !pending && <p className="text-sm font-medium text-success">Group processed successfully!</p>}
 
                 <div className="flex justify-end gap-3 pt-2 border-t border-border">
                   <button type="button" onClick={() => setOpen(false)} className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-muted hover:bg-surface-hover transition-colors">
@@ -132,8 +135,9 @@ export default function ProcessGroupModal({
                   <button
                     type="submit"
                     disabled={pending || !selectedSite || filteredGroups.every((g) => isProcessed(g.id, selectedSite))}
-                    className="rounded-lg bg-primary px-5 py-2 text-sm font-bold text-white hover:bg-primary-dark disabled:opacity-50 transition-colors"
+                    className="flex items-center gap-2 rounded-lg bg-primary px-5 py-2 text-sm font-bold text-white hover:bg-primary-dark disabled:opacity-50 transition-colors"
                   >
+                    {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
                     {pending ? "Processing..." : "Process Selected Group"}
                   </button>
                 </div>
