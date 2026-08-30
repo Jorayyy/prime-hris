@@ -62,13 +62,13 @@ export default function ProcessGroupModal({
 
               <form action={formAction} className="px-6 py-5 space-y-4">
                 <input type="hidden" name="periodId" value={periodId} />
-                <input type="hidden" name="groupId" value={filteredGroups.find((g) => true)?.id ?? ""} />
 
                 <div>
                   <label className="label">Select Site *</label>
                   <div className="relative">
                     <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted" />
                     <select
+                      name="siteId"
                       value={selectedSite}
                       onChange={(e) => setSelectedSite(e.target.value)}
                       className="field pl-9"
