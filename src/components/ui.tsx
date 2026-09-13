@@ -384,6 +384,8 @@ export function statusTone(status: string): keyof typeof badgeTones {
       return "red";
     case "ON_LEAVE":
       return "violet";
+    case "LOCKED":
+      return "blue";
     default:
       return "gray";
   }

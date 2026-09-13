@@ -333,7 +333,7 @@ export async function addAdjustmentAction(_prev: { error?: string }, formData: F
   const payslip = await db.payslip.findUnique({ where: { id: parsed.data.payslipId }, include: { payPeriod: true } });
   if (!payslip) return { error: "Payslip not found." };
   if (!["DRAFT", "PROCESSING", "FOR_APPROVAL"].includes(payslip.payPeriod.status)) {
-    return { error: "Adjustments are only allowed before approval." };
+    return { error: "Adjustments are only allowed before approval. Period is locked or already paid." };
   }
 
   await db.$transaction(async (tx) => {
@@ -908,5 +908,39 @@ export async function resolveExceptionAction(exceptionId: string) {
 
   await recordAudit({ action: "RESOLVE_PAYROLL_EXCEPTION", entity: "PayrollException", entityId: exceptionId, details: { type: exception.type, employeeId: exception.employeeId } });
 
+  return { ok: true };
+}
+
+export async function lockPayPeriodAction(periodId: string) {
+  const user = await requireRole("ADMIN", "PAYROLL");
+  const period = await db.payPeriod.findUnique({ where: { id: periodId } });
+  if (!period) return { error: "Pay period not found" };
+  if (!["APPROVED", "PAID"].includes(period.status)) return { error: "Only approved or paid periods can be locked" };
+
+  await db.payPeriod.update({
+    where: { id: periodId },
+    data: { status: "LOCKED", lockedBy: user.id, lockedAt: new Date() },
+  });
+
+  await recordAudit({ action: "LOCK_PAYROLL", entity: "PayPeriod", entityId: periodId });
+  revalidatePath("/payroll");
+  revalidatePath(`/payroll/${periodId}`);
+  return { ok: true };
+}
+
+export async function unlockPayPeriodAction(periodId: string) {
+  const user = await requireRole("ADMIN", "PAYROLL");
+  const period = await db.payPeriod.findUnique({ where: { id: periodId } });
+  if (!period) return { error: "Pay period not found" };
+  if (period.status !== "LOCKED") return { error: "Period is not locked" };
+
+  await db.payPeriod.update({
+    where: { id: periodId },
+    data: { status: "APPROVED", lockedBy: null, lockedAt: null },
+  });
+
+  await recordAudit({ action: "UNLOCK_PAYROLL", entity: "PayPeriod", entityId: periodId });
+  revalidatePath("/payroll");
+  revalidatePath(`/payroll/${periodId}`);
   return { ok: true };
 }

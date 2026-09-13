@@ -58,6 +58,11 @@ export default async function PayPeriodPage({ params }: { params: Promise<{ id: 
           <p className="mt-1 flex items-center gap-2 text-sm text-[var(--muted)]">
             Pay date {formatDate(period.payDate)} · <Badge tone={statusTone(period.status)}>{period.status.replace(/_/g, " ")}</Badge>
           </p>
+          {period.status === "LOCKED" && period.lockedAt && (
+            <p className="mt-1 text-xs text-[var(--muted)]">
+              Locked {formatDate(period.lockedAt)}
+            </p>
+          )}
         </div>
         <PeriodActions periodId={period.id} status={period.status} />
       </div>

@@ -102,6 +102,7 @@ enum PayPeriodStatus {
   FOR_APPROVAL
   APPROVED
   PAID
+  LOCKED
   CANCELLED
 }
 
@@ -555,6 +556,8 @@ model PayPeriod {
   processedBy String?
   approvedBy String?
   processedAt DateTime?
+  lockedBy   String?
+  lockedAt   DateTime?
   payslips   Payslip[]
   processedGroups ProcessedGroup[]
   notes      String?
