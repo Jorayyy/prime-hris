@@ -150,6 +150,20 @@ async function setPeriodStatus(periodId: string, action: "PROCESS" | "APPROVE" |
             }
           }
 
+          const empExceptions = await validateEmployeePayroll(
+            emp,
+            attendance.map((a) => ({
+              status: a.status,
+              actualIn: a.actualIn,
+              actualOut: a.actualOut,
+              workedMinutes: a.workedMinutes,
+              lateMinutes: a.lateMinutes,
+              undertimeMinutes: a.undertimeMinutes,
+            })),
+            period.startDate,
+            period.endDate,
+          );
+
           const monthlyRate = Number(emp.basicSalary);
           const result = computePayslip({
             monthlyRate,
@@ -206,6 +220,21 @@ async function setPeriodStatus(periodId: string, action: "PROCESS" | "APPROVE" |
               thirteenthMonthYTD: ytd13th,
             },
           });
+
+          if (result.netPay < 0) {
+            empExceptions.push({ employeeId: emp.id, type: "NEGATIVE_NET_PAY", severity: "ERROR", message: `Net pay is negative (₱${result.netPay.toFixed(2)}).` });
+          }
+          if (empExceptions.length > 0) {
+            await db.payrollException.createMany({
+              data: empExceptions.map((e) => ({
+                payPeriodId: period.id,
+                employeeId: e.employeeId,
+                type: e.type,
+                severity: e.severity,
+                message: e.message,
+              })),
+            });
+          }
 
           processed++;
         } catch {
@@ -454,6 +483,22 @@ export async function processGroupAction(_prev: { error?: string; ok?: boolean }
       }
 
       const monthlyRate = Number(emp.basicSalary);
+
+      // Validate and save exceptions
+      const empExceptions = await validateEmployeePayroll(
+        emp,
+        attendance.map((a) => ({
+          status: a.status,
+          actualIn: a.actualIn,
+          actualOut: a.actualOut,
+          workedMinutes: a.workedMinutes,
+          lateMinutes: a.lateMinutes,
+          undertimeMinutes: a.undertimeMinutes,
+        })),
+        period.startDate,
+        period.endDate,
+      );
+
       const result = computePayslip({
         monthlyRate,
         payFrequency: period.frequency as PayFrequencyCode,
@@ -530,6 +575,22 @@ export async function processGroupAction(_prev: { error?: string; ok?: boolean }
         },
       });
 
+      // Check for negative net pay and save all exceptions
+      if (result.netPay < 0) {
+        empExceptions.push({ employeeId: emp.id, type: "NEGATIVE_NET_PAY", severity: "ERROR", message: `Net pay is negative (₱${result.netPay.toFixed(2)}).` });
+      }
+      if (empExceptions.length > 0) {
+        await db.payrollException.createMany({
+          data: empExceptions.map((e) => ({
+            payPeriodId: period.id,
+            employeeId: e.employeeId,
+            type: e.type,
+            severity: e.severity,
+            message: e.message,
+          })),
+        });
+      }
+
       processed++;
     } catch {
       errorCount++;
@@ -569,5 +630,276 @@ export async function processGroupAction(_prev: { error?: string; ok?: boolean }
 
   revalidatePath(`/payroll/${period.id}`);
   revalidatePath("/payroll");
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// Payroll validation & preview
+// ---------------------------------------------------------------------------
+
+type ExceptionInput = {
+  employeeId: string;
+  type: "MISSING_TIME_OUT" | "MISSING_TIME_IN" | "DUPLICATE_ATTENDANCE" | "NO_SALARY" | "NO_SCHEDULE" | "MISSING_GOVT_IDS" | "NEGATIVE_NET_PAY" | "INCOMPLETE_ATTENDANCE" | "UNAPPROVED_OVERTIME";
+  severity: "ERROR" | "WARNING";
+  message: string;
+};
+
+type PayrollPreviewRow = {
+  employeeId: string;
+  employeeNumber: string;
+  employeeName: string;
+  monthlyRate: number;
+  dailyRate: number;
+  hourlyRate: number;
+  daysWorked: number;
+  absentDays: number;
+  paidLeaveDays: number;
+  lateMinutes: number;
+  undertimeMinutes: number;
+  nightDiffMinutes: number;
+  otHours: number;
+  basicPay: number;
+  nightDiffPay: number;
+  overtimePay: number;
+  holidayPay: number;
+  absenceDeduction: number;
+  lateUndertimeDeduction: number;
+  grossPay: number;
+  sss: number;
+  philhealth: number;
+  pagibig: number;
+  withholdingTax: number;
+  totalDeductions: number;
+  netPay: number;
+  exceptions: ExceptionInput[];
+};
+
+async function validateEmployeePayroll(
+  emp: { id: string; basicSalary: unknown; sssNumber: string | null; philhealthNumber: string | null; pagibigNumber: string | null; tinNumber: string | null },
+  attendance: Array<{ status: string; actualIn: Date | null; actualOut: Date | null; workedMinutes: number; lateMinutes: number; undertimeMinutes: number }>,
+  periodStart: Date,
+  periodEnd: Date,
+): Promise<ExceptionInput[]> {
+  const exceptions: ExceptionInput[] = [];
+  const empId = emp.id;
+
+  if (Number(emp.basicSalary) <= 0) {
+    exceptions.push({ employeeId: empId, type: "NO_SALARY", severity: "ERROR", message: "Employee has no salary configured." });
+  }
+
+  if (!emp.sssNumber || !emp.philhealthNumber || !emp.pagibigNumber || !emp.tinNumber) {
+    const missing = [
+      !emp.sssNumber && "SSS",
+      !emp.philhealthNumber && "PhilHealth",
+      !emp.pagibigNumber && "Pag-IBIG",
+      !emp.tinNumber && "TIN",
+    ].filter(Boolean).join(", ");
+    exceptions.push({ employeeId: empId, type: "MISSING_GOVT_IDS", severity: "WARNING", message: `Missing government IDs: ${missing}.` });
+  }
+
+  if (attendance.length === 0) {
+    exceptions.push({ employeeId: empId, type: "NO_SCHEDULE", severity: "WARNING", message: "No attendance records found for this period." });
+  }
+
+  let hasMissingOut = false;
+  let hasMissingIn = false;
+  for (const a of attendance) {
+    if (a.status === "INCOMPLETE") {
+      if (!a.actualOut) hasMissingOut = true;
+      if (!a.actualIn) hasMissingIn = true;
+    }
+  }
+
+  if (hasMissingOut) {
+    exceptions.push({ employeeId: empId, type: "MISSING_TIME_OUT", severity: "WARNING", message: "One or more shifts are missing a time-out punch." });
+  }
+  if (hasMissingIn) {
+    exceptions.push({ employeeId: empId, type: "MISSING_TIME_IN", severity: "WARNING", message: "One or more shifts are missing a time-in punch." });
+  }
+
+  return exceptions;
+}
+
+export async function previewPayrollAction(
+  periodId: string,
+  siteId: string,
+  groupId: string,
+): Promise<{ rows: PayrollPreviewRow[]; exceptions: ExceptionInput[]; error?: string }> {
+  try {
+    await requireRole("ADMIN", "PAYROLL");
+  } catch {
+    throw new ForbiddenError();
+  }
+
+  const period = await db.payPeriod.findUnique({ where: { id: periodId } });
+  if (!period) return { rows: [], exceptions: [], error: "Period not found." };
+
+  const group = await db.group.findUnique({ where: { id: groupId } });
+  if (!group) return { rows: [], exceptions: [], error: "Group not found." };
+
+  const employees = await db.employee.findMany({
+    where: { status: "ACTIVE", userId: { not: null }, siteId, groupId },
+  });
+
+  if (employees.length === 0) return { rows: [], exceptions: [], error: "No active employees found." };
+
+  const holidays = await db.holiday.findMany({
+    where: { date: { gte: period.startDate, lte: period.endDate } },
+  });
+
+  const settings = await db.companySettings.findFirst();
+  const year = new Date(period.startDate).getFullYear();
+  const govRates = await loadGovRates(year, period.frequency);
+
+  const allExceptions: ExceptionInput[] = [];
+  const rows: PayrollPreviewRow[] = [];
+
+  for (const emp of employees) {
+    const empExceptions: ExceptionInput[] = [];
+
+    const attendance = await db.attendanceDaily.findMany({
+      where: { employeeId: emp.id, workDate: { gte: period.startDate, lt: addDays(period.endDate, 1) } },
+    });
+
+    // Validate
+    const validationExcs = await validateEmployeePayroll(
+      emp,
+      attendance.map((a) => ({
+        status: a.status,
+        actualIn: a.actualIn,
+        actualOut: a.actualOut,
+        workedMinutes: a.workedMinutes,
+        lateMinutes: a.lateMinutes,
+        undertimeMinutes: a.undertimeMinutes,
+      })),
+      period.startDate,
+      period.endDate,
+    );
+    empExceptions.push(...validationExcs);
+
+    const presentDays = attendance.filter((a) => ["PRESENT", "LATE"].includes(a.status)).length;
+    const paidLeaveDays = attendance.filter((a) => a.status === "ON_LEAVE").length;
+    const absentDays = attendance.filter((a) => a.status === "ABSENT").length;
+    const lateMinutes = attendance.reduce((s, a) => s + a.lateMinutes, 0);
+    const undertimeMinutes = attendance.reduce((s, a) => s + a.undertimeMinutes, 0);
+    const ndMinutes = attendance.reduce((s, a) => s + a.nightDiffMinutes, 0);
+
+    const otRequests = await db.overtimeRequest.findMany({
+      where: {
+        employeeId: emp.id,
+        status: "APPROVED",
+        workDate: { gte: period.startDate, lt: addDays(period.endDate, 1) },
+      },
+    });
+    const otHours = otRequests.reduce((s, r) => s + Number(r.approvedHours ?? 0), 0);
+
+    let unworkedRegularHolidayDays = 0;
+    let workedRegularHolidayDays = 0;
+    let specialHolidaysWorkedDays = 0;
+    const isRegularEmp = emp.employmentType === "REGULAR";
+
+    for (const h of holidays) {
+      const dayAtt = attendance.find((a) => formatDateOnly(a.workDate) === formatDateOnly(h.date));
+      const worked = dayAtt && ["PRESENT", "LATE"].includes(dayAtt.status);
+      if (h.type === "REGULAR" || h.type === "DOUBLE_HOLIDAY") {
+        if (worked) workedRegularHolidayDays++;
+        else if (isRegularEmp) unworkedRegularHolidayDays++;
+      } else if ((h.type === "SPECIAL_NON_WORKING" || h.type === "SPECIAL_HOLIDAY") && worked) {
+        specialHolidaysWorkedDays++;
+      }
+    }
+
+    const monthlyRate = Number(emp.basicSalary);
+    const result = computePayslip({
+      monthlyRate,
+      payFrequency: period.frequency as PayFrequencyCode,
+      daysWorked: presentDays,
+      paidLeaveDays,
+      absentDays,
+      lateMinutes,
+      undertimeMinutes,
+      nightDiffMinutes: ndMinutes,
+      approvedOvertimeHours: otHours,
+      unworkedRegularHolidayDays,
+      workedRegularHolidayDays,
+      specialHolidaysWorkedDays,
+      taxableEarnings: [],
+      nonTaxableEarnings: [],
+      deductions: [],
+      thirteenthMonthYtd: 0,
+      graceMinutes: settings?.graceMinutes ?? 5,
+      govRates,
+    });
+
+    if (result.netPay < 0) {
+      empExceptions.push({ employeeId: emp.id, type: "NEGATIVE_NET_PAY", severity: "ERROR", message: `Net pay is negative (₱${result.netPay.toFixed(2)}). Check deductions.` });
+    }
+
+    allExceptions.push(...empExceptions);
+
+    const empRecord = await db.employee.findUnique({
+      where: { id: emp.id },
+      select: { employeeNumber: true, firstName: true, lastName: true, middleName: true, suffix: true },
+    });
+
+    rows.push({
+      employeeId: emp.id,
+      employeeNumber: empRecord?.employeeNumber ?? "—",
+      employeeName: empRecord
+        ? [empRecord.firstName, empRecord.middleName ? `${empRecord.middleName[0]}.` : null, empRecord.lastName, empRecord.suffix].filter(Boolean).join(" ")
+        : "—",
+      monthlyRate,
+      dailyRate: result.dailyRate,
+      hourlyRate: result.hourlyRate,
+      daysWorked: presentDays,
+      absentDays,
+      paidLeaveDays,
+      lateMinutes,
+      undertimeMinutes,
+      nightDiffMinutes: ndMinutes,
+      otHours,
+      basicPay: result.basicPay,
+      nightDiffPay: result.nightDiffPay,
+      overtimePay: result.overtimePay,
+      holidayPay: result.holidayPay,
+      absenceDeduction: result.absenceDeduction,
+      lateUndertimeDeduction: result.lateUndertimeDeduction,
+      grossPay: result.grossPay,
+      sss: result.sss,
+      philhealth: result.philhealth,
+      pagibig: result.pagibig,
+      withholdingTax: result.withholdingTax,
+      totalDeductions: result.totalDeductions,
+      netPay: result.netPay,
+      exceptions: empExceptions,
+    });
+  }
+
+  return { rows, exceptions: allExceptions };
+}
+
+export async function getPayrollExceptionsAction(periodId: string) {
+  await requireRole("ADMIN", "PAYROLL", "HR");
+
+  return db.payrollException.findMany({
+    where: { payPeriodId: periodId },
+    include: {
+      employee: {
+        select: { employeeNumber: true, firstName: true, lastName: true },
+      },
+    },
+    orderBy: [{ severity: "asc" }, { createdAt: "desc" }],
+  });
+}
+
+export async function resolveExceptionAction(exceptionId: string) {
+  await requireRole("ADMIN", "PAYROLL");
+
+  const user = await requireRole("ADMIN", "PAYROLL");
+  await db.payrollException.update({
+    where: { id: exceptionId },
+    data: { resolved: true, resolvedById: user.id, resolvedAt: new Date() },
+  });
+
   return { ok: true };
 }

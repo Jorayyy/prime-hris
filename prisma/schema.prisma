@@ -105,6 +105,23 @@ enum PayPeriodStatus {
   CANCELLED
 }
 
+enum ExceptionSeverity {
+  ERROR
+  WARNING
+}
+
+enum ExceptionType {
+  MISSING_TIME_OUT
+  MISSING_TIME_IN
+  DUPLICATE_ATTENDANCE
+  NO_SALARY
+  NO_SCHEDULE
+  MISSING_GOVT_IDS
+  NEGATIVE_NET_PAY
+  INCOMPLETE_ATTENDANCE
+  UNAPPROVED_OVERTIME
+}
+
 enum AdjustmentType {
   EARNING
   DEDUCTION
@@ -324,6 +341,7 @@ model Employee {
   leaveBalances    LeaveBalance[]
   leaveRequests    LeaveRequest[]
   payslips         Payslip[]
+  payrollExceptions PayrollException[]
   salaryHistory    SalaryHistoryEntry[]
 
   @@index([status])
@@ -540,10 +558,30 @@ model PayPeriod {
   payslips   Payslip[]
   processedGroups ProcessedGroup[]
   notes      String?
+  exceptions PayrollException[]
   createdAt  DateTime        @default(now())
 
   @@unique([startDate, endDate])
   @@index([status])
+}
+
+model PayrollException {
+  id             String            @id @default(cuid())
+  payPeriodId    String
+  payPeriod      PayPeriod         @relation(fields: [payPeriodId], references: [id], onDelete: Cascade)
+  employeeId     String
+  employee       Employee          @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  type           ExceptionType
+  severity       ExceptionSeverity @default(WARNING)
+  message        String
+  resolved       Boolean           @default(false)
+  resolvedById   String?
+  resolvedAt     DateTime?
+  createdAt      DateTime          @default(now())
+
+  @@index([payPeriodId])
+  @@index([employeeId])
+  @@index([resolved])
 }
 
 model Payslip {

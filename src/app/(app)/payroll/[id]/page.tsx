@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Download } from "lucide-react";
+import { ArrowLeft, Download, AlertTriangle } from "lucide-react";
 import { db } from "@/lib/db";
 import { getSessionUser, PAYROLL_ROLES } from "@/lib/auth";
 import { Card, CardHeader, Badge, statusTone, EmptyState } from "@/components/ui";
@@ -22,7 +22,12 @@ export default async function PayPeriodPage({ params }: { params: Promise<{ id: 
         include: { employee: true },
         orderBy: [{ employee: { lastName: "asc" } }],
       },
-      _count: { select: { payslips: true } },
+      exceptions: {
+        where: { resolved: false },
+        select: { id: true, type: true, severity: true, message: true, employee: { select: { employeeNumber: true, firstName: true, lastName: true } } },
+        orderBy: [{ severity: "asc" }, { createdAt: "desc" }],
+      },
+      _count: { select: { payslips: true, exceptions: { where: { resolved: false } } } },
     },
   });
   if (!period) notFound();
@@ -91,6 +96,30 @@ export default async function PayPeriodPage({ params }: { params: Promise<{ id: 
           ))}
         </div>
       </Card>
+
+      {period.exceptions.length > 0 && (
+        <Card className="mb-6">
+          <CardHeader
+            title="Payroll Exceptions"
+            subtitle={`${period._count.exceptions} unresolved issue${period._count.exceptions > 1 ? "s" : ""} detected during processing`}
+          />
+          <div className="divide-y divide-border">
+            {period.exceptions.map((ex) => (
+              <div key={ex.id} className="flex items-start gap-3 px-5 py-3">
+                <AlertTriangle className={`mt-0.5 h-4 w-4 flex-shrink-0 ${ex.severity === "ERROR" ? "text-red-500" : "text-amber-500"}`} />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm text-foreground">
+                    <span className="font-semibold">{ex.employee.firstName} {ex.employee.lastName}</span>
+                    <span className="ml-1 text-muted">({ex.employee.employeeNumber})</span>
+                  </p>
+                  <p className="text-xs text-muted">{ex.message}</p>
+                </div>
+                <Badge variant={ex.severity === "ERROR" ? "red" : "amber"} size="sm">{ex.severity}</Badge>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
 
       <Card>
         <CardHeader title="Payslips" subtitle="Click a row to view the printable payslip" />

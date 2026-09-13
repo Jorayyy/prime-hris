@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { useActionState, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Play, Loader2, CheckCircle, ExternalLink } from "lucide-react";
+import { X, Play, Loader2, CheckCircle, ExternalLink, Eye } from "lucide-react";
 import { processGroupAction } from "@/lib/actions/payroll";
+import PayrollPreview from "./payroll-preview";
 
 type Site = { id: string; name: string };
 type Group = { id: string; name: string; siteId: string | null; monthlyRate: number; payFrequency: string; isActive: boolean; _count: { employees: number } };
@@ -22,7 +23,9 @@ export default function ProcessGroupModal({
 }) {
   const [open, setOpen] = useState(false);
   const [selectedSite, setSelectedSite] = useState("");
+  const [selectedGroupId, setSelectedGroupId] = useState("");
   const [selectedGroupName, setSelectedGroupName] = useState("");
+  const [showPreview, setShowPreview] = useState(false);
   const [state, formAction, pending] = useActionState(processGroupAction, {} as { error?: string; ok?: boolean });
 
   const filteredGroups = groups.filter((g) => g.siteId === selectedSite && g.isActive);
@@ -34,7 +37,7 @@ export default function ProcessGroupModal({
   return (
     <>
       <button
-        onClick={() => { setOpen(true); setSelectedSite(""); setSelectedGroupName(""); }}
+        onClick={() => { setOpen(true); setSelectedSite(""); setSelectedGroupId(""); setSelectedGroupName(""); setShowPreview(false); }}
         className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-dark transition-colors"
       >
         <Play className="h-4 w-4" /> Process Group
@@ -106,7 +109,7 @@ export default function ProcessGroupModal({
                                 value={g.id}
                                 disabled={done}
                                 required
-                                onChange={() => setSelectedGroupName(g.name)}
+                                onChange={() => { setSelectedGroupId(g.id); setSelectedGroupName(g.name); setShowPreview(false); }}
                                 className="h-4 w-4 text-primary focus:ring-primary"
                               />
                               <div className="flex-1">
@@ -127,6 +130,16 @@ export default function ProcessGroupModal({
                 )}
 
                 {state?.error && <p className="text-sm font-medium text-danger">{state.error}</p>}
+
+                {showPreview && selectedGroupId && selectedSite && (
+                  <PayrollPreview
+                    periodId={periodId}
+                    siteId={selectedSite}
+                    groupId={selectedGroupId}
+                    groupName={selectedGroupName}
+                    onProcess={() => {}}
+                  />
+                )}
 
                 {state?.ok && !pending && (
                   <div className="flex items-center gap-2 text-sm font-medium text-success">
@@ -157,6 +170,15 @@ export default function ProcessGroupModal({
                       <button type="button" onClick={() => setOpen(false)} className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-muted hover:bg-surface-hover transition-colors">
                         Cancel
                       </button>
+                      {selectedGroupId && !showPreview && (
+                        <button
+                          type="button"
+                          onClick={() => setShowPreview(true)}
+                          className="flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm font-semibold text-foreground hover:bg-surface-hover transition-colors"
+                        >
+                          <Eye className="h-4 w-4" /> Preview
+                        </button>
+                      )}
                       <button
                         type="submit"
                         disabled={pending || !selectedSite || filteredGroups.every((g) => isProcessed(g.id, selectedSite))}
