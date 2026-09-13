@@ -944,3 +944,36 @@ export async function unlockPayPeriodAction(periodId: string) {
   revalidatePath(`/payroll/${periodId}`);
   return { ok: true };
 }
+
+export async function archivePayPeriodAction(periodId: string) {
+  const user = await requireRole("ADMIN", "PAYROLL");
+  const period = await db.payPeriod.findUnique({ where: { id: periodId } });
+  if (!period) return { error: "Pay period not found" };
+  if (!["DRAFT", "FOR_APPROVAL"].includes(period.status)) return { error: "Only draft or pending approval periods can be archived" };
+
+  await db.payPeriod.update({
+    where: { id: periodId },
+    data: { archivedAt: new Date() },
+  });
+
+  await recordAudit({ action: "ARCHIVE_PAYROLL", entity: "PayPeriod", entityId: periodId });
+  revalidatePath("/payroll");
+  return { ok: true };
+}
+
+export async function unarchivePayPeriodAction(periodId: string) {
+  const user = await requireRole("ADMIN", "PAYROLL");
+  const period = await db.payPeriod.findUnique({ where: { id: periodId } });
+  if (!period) return { error: "Pay period not found" };
+  if (!period.archivedAt) return { error: "Period is not archived" };
+
+  await db.payPeriod.update({
+    where: { id: periodId },
+    data: { archivedAt: null },
+  });
+
+  await recordAudit({ action: "UNARCHIVE_PAYROLL", entity: "PayPeriod", entityId: periodId });
+  revalidatePath("/payroll");
+  revalidatePath("/payroll/archived");
+  return { ok: true };
+}

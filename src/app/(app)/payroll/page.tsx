@@ -1,11 +1,12 @@
 import Link from "next/link";
-import { Eye } from "lucide-react";
+import { Eye, Archive } from "lucide-react";
 import { db } from "@/lib/db";
 import { getSessionUser, PAYROLL_ROLES } from "@/lib/auth";
 import { Card, CardHeader, Badge, statusTone, EmptyState } from "@/components/ui";
 import { formatDate } from "@/lib/format";
 import NewPayPeriodForm from "./new-period-form";
 import ProcessGroupModal from "./process-group-modal";
+import ArchiveButton from "./archive-button";
 
 export const metadata = { title: "Payroll" };
 
@@ -15,8 +16,9 @@ export default async function PayrollPage() {
     return <EmptyState title="Not authorized" hint="Payroll is restricted to payroll officers and admins." />;
   }
 
-  const [periods, sites, groups] = await Promise.all([
+  const [periods, sites, groups, archivedCount] = await Promise.all([
     db.payPeriod.findMany({
+      where: { archivedAt: null },
       orderBy: { startDate: "desc" },
       include: {
         _count: { select: { payslips: true } },
@@ -28,6 +30,7 @@ export default async function PayrollPage() {
       orderBy: { name: "asc" },
       include: { _count: { select: { employees: true } } },
     }),
+    db.payPeriod.count({ where: { archivedAt: { not: null } } }),
   ]);
 
   return (
@@ -46,7 +49,20 @@ export default async function PayrollPage() {
       </Card>
 
       <Card>
-        <CardHeader title="Pay Periods" subtitle={`${periods.length} period${periods.length === 1 ? "" : "s"}`} />
+        <div className="flex items-center justify-between px-5 pt-5">
+          <div>
+            <h2 className="text-sm font-bold">Pay Periods</h2>
+            <p className="text-xs text-[var(--muted)]">{periods.length} active period{periods.length === 1 ? "" : "s"}</p>
+          </div>
+          {archivedCount > 0 && (
+            <Link
+              href="/payroll/archived"
+              className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-[var(--muted)] hover:bg-surface-hover transition-colors"
+            >
+              <Archive className="h-3.5 w-3.5" /> Archived ({archivedCount})
+            </Link>
+          )}
+        </div>
         {periods.length === 0 ? (
           <EmptyState title="No pay periods yet" hint="Create your first pay period above." />
         ) : (
@@ -110,6 +126,9 @@ export default async function PayrollPage() {
                             groups={groups as any}
                             processed={p.processedGroups.map((pg) => ({ groupId: pg.groupId, siteId: pg.siteId }))}
                           />
+                        )}
+                        {["DRAFT", "FOR_APPROVAL"].includes(p.status) && (
+                          <ArchiveButton periodId={p.id} />
                         )}
                       </div>
                     </td>

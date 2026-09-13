@@ -64,7 +64,7 @@ export default async function PayPeriodPage({ params }: { params: Promise<{ id: 
             </p>
           )}
         </div>
-        <PeriodActions periodId={period.id} status={period.status} />
+        <PeriodActions periodId={period.id} status={period.status} archived={!!period.archivedAt} />
       </div>
 
       <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">

@@ -558,6 +558,7 @@ model PayPeriod {
   processedAt DateTime?
   lockedBy   String?
   lockedAt   DateTime?
+  archivedAt DateTime?
   payslips   Payslip[]
   processedGroups ProcessedGroup[]
   notes      String?
