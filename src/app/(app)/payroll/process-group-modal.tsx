@@ -117,17 +117,14 @@ export default function ProcessGroupModal({
                       {filteredGroups.length === 0 ? (
                         <p className="text-xs text-muted">No groups at this site.</p>
                       ) : (
-                        filteredGroups.map((g) => {
-                          const processed = isProcessed(g.id, selectedSite);
-                          return (
+                        <>
+                          {filteredGroups.filter((g) => !isProcessed(g.id, selectedSite)).map((g) => (
                             <label
                               key={g.id}
                               className={`flex items-center gap-3 rounded-lg border px-4 py-3 text-sm transition-colors ${
                                 selectedGroupId === g.id
                                   ? "border-primary bg-primary/5"
-                                  : processed
-                                    ? "border-border bg-slate-50 opacity-60"
-                                    : "border-border hover:border-primary/40"
+                                  : "border-border hover:border-primary/40"
                               }`}
                             >
                               <input
@@ -136,17 +133,37 @@ export default function ProcessGroupModal({
                                 value={g.id}
                                 checked={selectedGroupId === g.id}
                                 onChange={() => { setSelectedGroupId(g.id); setSelectedGroupName(g.name); setShowPreview(false); }}
-                                disabled={processed}
                                 className="accent-[var(--brand)]"
                               />
                               <div className="flex-1">
                                 <span className="font-semibold">{g.name}</span>
                                 <span className="ml-2 text-xs text-muted">{g._count.employees} employees</span>
                               </div>
-                              {processed && <span className="text-xs font-medium text-emerald-600">Processed</span>}
                             </label>
-                          );
-                        })
+                          ))}
+                          {filteredGroups.some((g) => isProcessed(g.id, selectedSite)) && (
+                            <>
+                              <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-widest text-muted">
+                                <div className="h-px flex-1 bg-border" />
+                                <span>Already Processed</span>
+                                <div className="h-px flex-1 bg-border" />
+                              </div>
+                              {filteredGroups.filter((g) => isProcessed(g.id, selectedSite)).map((g) => (
+                                <label
+                                  key={g.id}
+                                  className="flex items-center gap-3 rounded-lg border border-border bg-slate-50 px-4 py-3 text-sm opacity-50"
+                                >
+                                  <input type="radio" name="groupId" disabled className="accent-[var(--brand)]" />
+                                  <div className="flex-1">
+                                    <span className="font-semibold">{g.name}</span>
+                                    <span className="ml-2 text-xs text-muted">{g._count.employees} employees</span>
+                                  </div>
+                                  <span className="text-xs font-medium text-emerald-600">Done</span>
+                                </label>
+                              ))}
+                            </>
+                          )}
+                        </>
                       )}
                     </div>
                   </div>
