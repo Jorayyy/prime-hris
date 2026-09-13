@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Eye, Archive } from "lucide-react";
+import { Eye, Archive, Play } from "lucide-react";
 import { db } from "@/lib/db";
 import { getSessionUser, PAYROLL_ROLES } from "@/lib/auth";
 import { Card, CardHeader, Badge, statusTone, EmptyState } from "@/components/ui";
@@ -54,14 +54,25 @@ export default async function PayrollPage() {
             <h2 className="text-sm font-bold">Pay Periods</h2>
             <p className="text-xs text-[var(--muted)]">{periods.length} active period{periods.length === 1 ? "" : "s"}</p>
           </div>
-          {archivedCount > 0 && (
-            <Link
-              href="/payroll/archived"
-              className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-[var(--muted)] hover:bg-surface-hover transition-colors"
-            >
-              <Archive className="h-3.5 w-3.5" /> Archived ({archivedCount})
-            </Link>
-          )}
+          <div className="flex items-center gap-2">
+            {periods.filter((p) => ["DRAFT", "PROCESSING", "FOR_APPROVAL"].includes(p.status)).length > 0 && (
+              <ProcessGroupModal
+                periodId={periods.find((p) => ["DRAFT", "PROCESSING", "FOR_APPROVAL"].includes(p.status))!.id}
+                sites={sites}
+                groups={groups as any}
+                processed={periods.find((p) => ["DRAFT", "PROCESSING", "FOR_APPROVAL"].includes(p.status))!.processedGroups.map((pg) => ({ groupId: pg.groupId, siteId: pg.siteId }))}
+                triggerLabel="Process Group"
+              />
+            )}
+            {archivedCount > 0 && (
+              <Link
+                href="/payroll/archived"
+                className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-[var(--muted)] hover:bg-surface-hover transition-colors"
+              >
+                <Archive className="h-3.5 w-3.5" /> Archived ({archivedCount})
+              </Link>
+            )}
+          </div>
         </div>
         {periods.length === 0 ? (
           <EmptyState title="No pay periods yet" hint="Create your first pay period above." />

@@ -15,11 +15,13 @@ export default function ProcessGroupModal({
   sites,
   groups,
   processed,
+  triggerLabel,
 }: {
   periodId: string;
   sites: Site[];
   groups: Group[];
   processed: { groupId: string; siteId: string }[];
+  triggerLabel?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [selectedSite, setSelectedSite] = useState("");
@@ -40,7 +42,7 @@ export default function ProcessGroupModal({
         onClick={() => { setOpen(true); setSelectedSite(""); setSelectedGroupId(""); setSelectedGroupName(""); setShowPreview(false); }}
         className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-dark transition-colors"
       >
-        <Play className="h-4 w-4" /> Process Group
+        <Play className="h-4 w-4" /> {triggerLabel || "Process Group"}
       </button>
 
       <AnimatePresence>
