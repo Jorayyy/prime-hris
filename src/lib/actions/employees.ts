@@ -242,3 +242,35 @@ export async function updateEmployeeAction(_prev: EmployeeFormState, formData: F
 
   return { ok: true };
 }
+
+export async function searchEmployees(query: string) {
+  if (!query || query.length < 2) return [];
+
+  const results = await db.employee.findMany({
+    where: {
+      OR: [
+        { firstName: { contains: query, mode: "insensitive" } },
+        { lastName: { contains: query, mode: "insensitive" } },
+        { employeeNumber: { contains: query, mode: "insensitive" } },
+      ],
+      status: "ACTIVE",
+    },
+    select: {
+      id: true,
+      employeeNumber: true,
+      firstName: true,
+      lastName: true,
+      position: { select: { title: true } },
+    },
+    take: 8,
+    orderBy: { employeeNumber: "asc" },
+  });
+
+  return results.map((e) => ({
+    id: e.id,
+    name: `${e.firstName} ${e.lastName}`,
+    employeeNumber: e.employeeNumber,
+    position: e.position?.title ?? "",
+    href: `/employees/${e.id}`,
+  }));
+}

@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
+import { searchEmployees } from "@/lib/actions/employees";
 import {
   Search,
   Bell,
@@ -124,10 +125,38 @@ export default function Header({ user, company, notifications }: HeaderProps) {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<{ id: string; name: string; employeeNumber: string; position: string; href: string }[]>([]);
+  const [searching, setSearching] = useState(false);
   const [helpStep, setHelpStep] = useState<number | null>(null);
   const notifRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const helpRef = useRef<HTMLDivElement>(null);
+
+  // Debounced employee search
+  useEffect(() => {
+    if (!showSearch || searchQuery.length < 2) {
+      setSearchResults([]);
+      return;
+    }
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      setSearching(true);
+      const results = await searchEmployees(searchQuery);
+      if (!cancelled) {
+        setSearchResults(results);
+        setSearching(false);
+      }
+    }, 300);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [searchQuery, showSearch]);
+
+  // Reset search when modal opens/closes
+  useEffect(() => {
+    if (!showSearch) {
+      setSearchQuery("");
+      setSearchResults([]);
+    }
+  }, [showSearch]);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -395,19 +424,44 @@ export default function Header({ user, company, notifications }: HeaderProps) {
                 <kbd className="rounded-md border border-border px-2 py-1 text-xs font-medium text-muted">ESC</kbd>
               </div>
               <div className="max-h-96 overflow-y-auto p-4">
-                <p className="text-xs font-semibold text-muted uppercase tracking-wide mb-3">Quick Actions</p>
-                <div className="space-y-2">
-                  {[
-                    { label: "Add New Employee", href: "/employees/new" },
-                    { label: "Process Payroll", href: "/payroll" },
-                    { label: "View Attendance", href: "/attendance" },
-                    { label: "Settings", href: "/settings" },
-                  ].map((action) => (
-                    <Link key={action.href} href={action.href} onClick={() => setShowSearch(false)} className="flex w-full items-center justify-between rounded-lg px-4 py-3 text-sm text-foreground hover:bg-surface-hover transition-colors">
-                      <span>{action.label}</span>
-                    </Link>
-                  ))}
-                </div>
+                {searchQuery.length >= 2 ? (
+                  <>
+                    {searching ? (
+                      <p className="text-sm text-muted text-center py-4">Searching...</p>
+                    ) : searchResults.length > 0 ? (
+                      <div className="space-y-1">
+                        <p className="text-xs font-semibold text-muted uppercase tracking-wide mb-2">Employees</p>
+                        {searchResults.map((emp) => (
+                          <Link key={emp.id} href={emp.href} onClick={() => setShowSearch(false)} className="flex items-center gap-3 rounded-lg px-4 py-3 text-sm hover:bg-surface-hover transition-colors">
+                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+                              {emp.name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
+                            </div>
+                            <div className="flex-1">
+                              <p className="font-semibold">{emp.name}</p>
+                              <p className="text-xs text-muted">{emp.employeeNumber} · {emp.position}</p>
+                            </div>
+                          </Link>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted text-center py-4">No employees found for &quot;{searchQuery}&quot;</p>
+                    )}
+                  </>
+                ) : (
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold text-muted uppercase tracking-wide mb-3">Quick Actions</p>
+                    {[
+                      { label: "Add New Employee", href: "/employees/new" },
+                      { label: "Process Payroll", href: "/payroll" },
+                      { label: "View Attendance", href: "/attendance" },
+                      { label: "Settings", href: "/settings" },
+                    ].map((action) => (
+                      <Link key={action.href} href={action.href} onClick={() => setShowSearch(false)} className="flex w-full items-center justify-between rounded-lg px-4 py-3 text-sm text-foreground hover:bg-surface-hover transition-colors">
+                        <span>{action.label}</span>
+                      </Link>
+                    ))}
+                  </div>
+                )}
               </div>
             </motion.div>
           </motion.div>
