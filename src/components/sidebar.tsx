@@ -36,7 +36,7 @@ const NAV: Array<{ section: string; items: NavItem[] }> = [
     items: [
       { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
       { href: "/me", label: "My Space", icon: UserRound },
-      { href: "/chat", label: "Messages", icon: MessageSquare, badge: 0 },
+      { href: "/chat", label: "Messages", icon: MessageSquare },
     ],
   },
   {

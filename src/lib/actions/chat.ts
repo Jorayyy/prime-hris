@@ -290,3 +290,59 @@ export async function deleteConversation(conversationId: string) {
   await db.chatParticipant.deleteMany({ where: { conversationId } });
   await db.conversation.delete({ where: { id: conversationId } });
 }
+
+export async function sendMessage(conversationId: string, content: string) {
+  const user = await requireUser();
+
+  const participant = await db.chatParticipant.findUnique({
+    where: {
+      conversationId_userId: { conversationId, userId: user.id },
+    },
+  });
+
+  if (!participant) throw new Error("Not a participant");
+
+  const trimmed = content.trim();
+  if (!trimmed) throw new Error("Message cannot be empty");
+
+  const message = await db.chatMessage.create({
+    data: {
+      conversationId,
+      senderId: user.id,
+      content: trimmed,
+    },
+    include: {
+      sender: {
+        select: {
+          id: true,
+          email: true,
+          employee: {
+            select: {
+              firstName: true,
+              lastName: true,
+              photoUrl: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  await db.conversation.update({
+    where: { id: conversationId },
+    data: { updatedAt: new Date() },
+  });
+
+  return message;
+}
+
+export async function markAsRead(conversationId: string) {
+  const user = await requireUser();
+
+  await db.chatParticipant.updateMany({
+    where: { conversationId, userId: user.id },
+    data: { lastReadAt: new Date() },
+  });
+
+  return { ok: true };
+}
