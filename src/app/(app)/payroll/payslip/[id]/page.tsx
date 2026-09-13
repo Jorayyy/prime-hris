@@ -1,4 +1,6 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 import { db } from "@/lib/db";
 import { getSessionUser, PAYROLL_ROLES } from "@/lib/auth";
 import { formatCurrency, formatDate, fullName } from "@/lib/format";
@@ -52,7 +54,12 @@ export default async function PayslipPage({ params }: { params: Promise<{ id: st
   return (
     <div className="mx-auto max-w-3xl">
       <div className="no-print mb-4 flex items-center justify-between">
-        <div className="text-sm font-semibold">{fullName(e)} · Payslip</div>
+        <div className="flex items-center gap-3">
+          <Link href={`/payroll/${payslip.payPeriodId}`} className="flex items-center gap-1.5 text-xs font-semibold text-[var(--muted)] hover:text-foreground transition-colors">
+            <ArrowLeft className="h-3.5 w-3.5" /> Back
+          </Link>
+          <span className="text-sm font-semibold">{fullName(e)} · Payslip</span>
+        </div>
         <PrintButton />
       </div>
 
