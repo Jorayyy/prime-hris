@@ -52,7 +52,7 @@ export default function ProcessGroupModal({
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
               transition={{ duration: 0.2 }}
-              className="relative w-full max-w-md rounded-2xl bg-white shadow-2xl overflow-hidden"
+              className={`relative rounded-2xl bg-white shadow-2xl overflow-hidden transition-all ${showPreview ? "w-full max-w-5xl" : "w-full max-w-md"}`}
             >
               <div className="flex items-center justify-between border-b border-border px-6 py-4">
                 <h2 className="text-lg font-bold text-foreground">Process Payroll by Group</h2>
@@ -61,7 +61,7 @@ export default function ProcessGroupModal({
                 </button>
               </div>
 
-              <form action={formAction} className="relative px-6 py-5 space-y-4">
+              <form action={formAction} className={`relative px-6 py-5 space-y-4 ${showPreview ? "max-h-[80vh] overflow-y-auto" : ""}`}>
                 <input type="hidden" name="periodId" value={periodId} />
 
                 {pending && (

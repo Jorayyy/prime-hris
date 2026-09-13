@@ -140,7 +140,7 @@ export default function PayrollPreview({
       {exceptions.length > 0 && (
         <div className="border-b border-border bg-amber-50/50 px-4 py-3">
           <p className="mb-2 text-xs font-bold text-amber-800">Exceptions</p>
-          <div className="space-y-1">
+          <div className="max-h-32 space-y-1 overflow-y-auto">
             {exceptions.map((ex, i) => (
               <p key={i} className="text-xs text-amber-700">
                 <span className="font-semibold">{rows.find((r) => r.employeeId === ex.employeeId)?.employeeName ?? "Unknown"}</span>
