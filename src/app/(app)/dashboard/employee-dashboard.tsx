@@ -103,7 +103,7 @@ export default function EmployeeDashboard({
   }
 
   return (
-    <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-6">
+    <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-3">
       {/* Welcome */}
       <motion.div variants={itemVariants}>
         <h1 className="text-2xl font-bold tracking-tight">
@@ -131,7 +131,7 @@ export default function EmployeeDashboard({
             }
           />
           <div className="p-6">
-            <div className="grid grid-cols-2 gap-6 sm:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               <div className="text-center">
                 <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-success/10">
                   <LogIn className="h-6 w-6 text-success" />
@@ -192,7 +192,7 @@ export default function EmployeeDashboard({
       </motion.div>
 
       {/* Quick Actions */}
-      <motion.div variants={itemVariants} className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <motion.div variants={itemVariants} className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Link href="/me">
           <Card className="hover:shadow-md transition-shadow cursor-pointer h-full">
             <div className="flex items-center gap-4 p-5">
@@ -238,7 +238,7 @@ export default function EmployeeDashboard({
       </motion.div>
 
       {/* Bottom Grid */}
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-3 lg:grid-cols-2">
         {/* Recent Attendance */}
         <motion.div variants={itemVariants}>
           <Card className="h-full">
@@ -347,7 +347,7 @@ export default function EmployeeDashboard({
       </div>
 
       {/* Third Row: Announcements + Holidays + Doc Expiry */}
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="grid gap-3 lg:grid-cols-3">
         <motion.div variants={itemVariants}>
           <AnnouncementsWidget announcements={announcements} isAdmin={false} />
         </motion.div>

@@ -80,7 +80,7 @@ export default function AdminDashboard({
   const today = new Date();
 
   return (
-    <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-6">
+    <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-3">
       {/* Welcome */}
       <motion.div variants={itemVariants}>
         <h1 className="text-2xl font-bold tracking-tight">
@@ -90,7 +90,7 @@ export default function AdminDashboard({
       </motion.div>
 
       {/* Stat Cards */}
-      <motion.div variants={itemVariants} className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <motion.div variants={itemVariants} className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           label="Total Employees"
           value={String(stats.totalEmployees)}
@@ -133,7 +133,7 @@ export default function AdminDashboard({
       </motion.div>
 
       {/* Main Grid: Attendance + Quick Actions + Approvals */}
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="grid gap-3 lg:grid-cols-3">
         {/* Attendance Overview */}
         <motion.div variants={itemVariants} className="lg:col-span-1">
           <Card className="h-full">
@@ -215,7 +215,7 @@ export default function AdminDashboard({
       </div>
 
       {/* Second Row: Hours Trend + Headcount + Holidays */}
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="grid gap-3 lg:grid-cols-3">
         <motion.div variants={itemVariants}>
           <HoursTrendWidget weeks={hoursTrend} />
         </motion.div>
@@ -228,7 +228,7 @@ export default function AdminDashboard({
       </div>
 
       {/* Third Row: Announcements + Birthdays + Doc Expiry */}
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="grid gap-3 lg:grid-cols-3">
         <motion.div variants={itemVariants}>
           <AnnouncementsWidget announcements={announcements} isAdmin={isAdmin} />
         </motion.div>
