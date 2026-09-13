@@ -253,6 +253,24 @@ export type PayslipOutput = {
   otherDeductions: number;
   totalDeductions: number;
   netPay: number;
+  breakdown: PayslipBreakdown;
+};
+
+export type PayslipBreakdown = {
+  basicPay: { daysWorked: number; paidLeaveDays: number; dailyRate: number; amount: number };
+  holidayPay: { unworkedRegular: number; workedRegular: number; specialWorked: number; dailyRate: number; amount: number };
+  nightDiff: { minutes: number; hourlyRate: number; rate: number; amount: number };
+  overtime: { hours: number; hourlyRate: number; multiplier: number; amount: number };
+  absenceDeduction: { days: number; dailyRate: number; amount: number };
+  lateUndertime: { lateMinutes: number; undertimeMinutes: number; graceMinutes: number; hourlyRate: number; amount: number };
+  taxableGross: number;
+  grossPay: number;
+  sss: { msc: number; eeRate: number; ee: number; er: number; ec: number };
+  philhealth: { base: number; rate: number; ee: number };
+  pagibig: { base: number; rate: number; cap: number; ee: number };
+  withholdingTax: { taxableIncome: number; bracket: string; amount: number };
+  totalDeductions: number;
+  netPay: number;
 };
 
 export function computePayslip(input: PayslipInput): PayslipOutput {
@@ -303,6 +321,68 @@ export function computePayslip(input: PayslipInput): PayslipOutput {
   const totalDeductions = round2(statutoryDeductions + withholdingTax + otherDeductions + absenceDeduction + lateUndertimeDeduction);
   const netPay = round2(grossPay - totalDeductions);
 
+  const sssDetail = computeSss(input.monthlyRate, govRates?.sss);
+  const philhealthDetail = computePhilHealth(input.monthlyRate, govRates?.philhealth);
+  const pagibigDetail = computePagIbig(input.monthlyRate, govRates?.pagibig);
+
+  // Find which tax bracket was hit
+  let taxBracketLabel = "—";
+  const taxTable = govRates?.withholdingTax ?? (input.payFrequency === "SEMI_MONTHLY" ? TAX_TABLES_SEMI_MONTHLY : TAX_TABLES_MONTHLY);
+  for (const b of taxTable) {
+    if (taxableIncome >= b.min && (b.max === undefined || taxableIncome <= b.max)) {
+      taxBracketLabel = b.max !== undefined ? `₱${b.min.toLocaleString()} – ₱${b.max.toLocaleString()} (${(b.rate * 100).toFixed(0)}%)` : `Over ₱${b.min.toLocaleString()} (${(b.rate * 100).toFixed(0)}%)`;
+      break;
+    }
+  }
+
+  const breakdown: PayslipBreakdown = {
+    basicPay: {
+      daysWorked: input.daysWorked,
+      paidLeaveDays: input.paidLeaveDays,
+      dailyRate,
+      amount: basicPay,
+    },
+    holidayPay: {
+      unworkedRegular: input.unworkedRegularHolidayDays,
+      workedRegular: input.workedRegularHolidayDays,
+      specialWorked: input.specialHolidaysWorkedDays,
+      dailyRate,
+      amount: holidayPay,
+    },
+    nightDiff: {
+      minutes: input.nightDiffMinutes,
+      hourlyRate,
+      rate: ndRate,
+      amount: nightDiffPay,
+    },
+    overtime: {
+      hours: input.approvedOvertimeHours,
+      hourlyRate,
+      multiplier: RATES.OT_ORDINARY,
+      amount: overtimePay,
+    },
+    absenceDeduction: {
+      days: input.absentDays,
+      dailyRate,
+      amount: absenceDeduction,
+    },
+    lateUndertime: {
+      lateMinutes: input.lateMinutes,
+      undertimeMinutes: input.undertimeMinutes,
+      graceMinutes: grace,
+      hourlyRate,
+      amount: lateUndertimeDeduction,
+    },
+    taxableGross,
+    grossPay,
+    sss: { msc: sssDetail.msc, eeRate: govRates?.sss?.eeRate ?? 0.05, ee: sssDetail.ee, er: sssDetail.er, ec: sssDetail.ec },
+    philhealth: { base: Math.min(Math.max(input.monthlyRate, govRates?.philhealth?.floor ?? 10000), govRates?.philhealth?.ceiling ?? 100000), rate: govRates?.philhealth?.rate ?? 0.05, ee: philhealthDetail },
+    pagibig: { base: input.monthlyRate, rate: govRates?.pagibig?.rate ?? 0.02, cap: govRates?.pagibig?.cap ?? 100, ee: pagibigDetail },
+    withholdingTax: { taxableIncome, bracket: taxBracketLabel, amount: withholdingTax },
+    totalDeductions,
+    netPay,
+  };
+
   return {
     dailyRate,
     hourlyRate,
@@ -315,13 +395,14 @@ export function computePayslip(input: PayslipInput): PayslipOutput {
     taxableGross,
     nonTaxableGross: round2(nonTaxableAdditions),
     grossPay,
-    sss,
-    philhealth,
-    pagibig,
+    sss: sssDetail.ee,
+    philhealth: philhealthDetail,
+    pagibig: pagibigDetail,
     withholdingTax,
     otherDeductions,
     totalDeductions,
     netPay,
+    breakdown,
   };
 }
 

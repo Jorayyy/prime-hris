@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { requireRole, ForbiddenError } from "@/lib/auth";
 import { recordAudit } from "@/lib/actions/audit";
@@ -218,6 +219,7 @@ async function setPeriodStatus(periodId: string, action: "PROCESS" | "APPROVE" |
               totalDeductions: result.totalDeductions,
               netPay: result.netPay,
               thirteenthMonthYTD: ytd13th,
+              breakdown: result.breakdown as unknown as Prisma.InputJsonValue,
             },
           });
 
@@ -551,6 +553,7 @@ export async function processGroupAction(_prev: { error?: string; ok?: boolean }
           totalDeductions: result.totalDeductions,
           netPay: result.netPay,
           thirteenthMonthYTD: ytd13th,
+          breakdown: result.breakdown as unknown as Prisma.InputJsonValue,
         },
         create: {
           payPeriodId: period.id,
@@ -572,6 +575,7 @@ export async function processGroupAction(_prev: { error?: string; ok?: boolean }
           totalDeductions: result.totalDeductions,
           netPay: result.netPay,
           thirteenthMonthYTD: ytd13th,
+          breakdown: result.breakdown as unknown as Prisma.InputJsonValue,
         },
       });
 
@@ -893,13 +897,16 @@ export async function getPayrollExceptionsAction(periodId: string) {
 }
 
 export async function resolveExceptionAction(exceptionId: string) {
-  await requireRole("ADMIN", "PAYROLL");
-
   const user = await requireRole("ADMIN", "PAYROLL");
+  const exception = await db.payrollException.findUnique({ where: { id: exceptionId } });
+  if (!exception) return { ok: false, error: "Exception not found" };
+
   await db.payrollException.update({
     where: { id: exceptionId },
     data: { resolved: true, resolvedById: user.id, resolvedAt: new Date() },
   });
+
+  await recordAudit({ action: "RESOLVE_PAYROLL_EXCEPTION", entity: "PayrollException", entityId: exceptionId, details: { type: exception.type, employeeId: exception.employeeId } });
 
   return { ok: true };
 }

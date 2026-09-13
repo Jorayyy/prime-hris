@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { getSessionUser, PAYROLL_ROLES } from "@/lib/auth";
 import { formatCurrency, formatDate, fullName } from "@/lib/format";
 import PrintButton from "./print-button";
+import type { PayslipBreakdown } from "@/lib/payroll/ph";
 
 export const metadata = { title: "Payslip" };
 
@@ -14,6 +15,15 @@ function Line({ label, value, bold, negative }: { label: string; value: string; 
         {negative ? "-" : ""}
         {value}
       </span>
+    </div>
+  );
+}
+
+function BreakdownDetail({ label, detail }: { label: string; detail: string }) {
+  return (
+    <div className="flex justify-between py-1 text-xs text-slate-500">
+      <span className="pl-3">{label}</span>
+      <span className="tabular-nums">{detail}</span>
     </div>
   );
 }
@@ -37,6 +47,7 @@ export default async function PayslipPage({ params }: { params: Promise<{ id: st
 
   const e = payslip.employee;
   const pp = payslip.payPeriod;
+  const bd = payslip.breakdown as PayslipBreakdown | null;
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -81,9 +92,34 @@ export default async function PayslipPage({ params }: { params: Promise<{ id: st
           <section>
             <h3 className="mb-1 text-xs font-extrabold uppercase tracking-widest text-emerald-700">Earnings</h3>
             <Line label="Basic Pay" value={formatCurrency(payslip.basicPay)} />
-            {Number(payslip.nightDiffPay) > 0 ? <Line label="Night Differential" value={formatCurrency(payslip.nightDiffPay)} /> : null}
-            {Number(payslip.overtimePay) > 0 ? <Line label="Overtime" value={formatCurrency(payslip.overtimePay)} /> : null}
-            {Number(payslip.holidayPay) > 0 ? <Line label="Holiday Premiums" value={formatCurrency(payslip.holidayPay)} /> : null}
+            {bd && (
+              <>
+                <BreakdownDetail label="" detail={`${bd.basicPay.daysWorked}d worked + ${bd.basicPay.paidLeaveDays}d leave × ${formatCurrency(bd.basicPay.dailyRate)}`} />
+              </>
+            )}
+            {Number(payslip.nightDiffPay) > 0 && (
+              <>
+                <Line label="Night Differential" value={formatCurrency(payslip.nightDiffPay)} />
+                {bd && <BreakdownDetail label="" detail={`${bd.nightDiff.minutes}min × ${formatCurrency(bd.nightDiff.hourlyRate)}/hr × ${(bd.nightDiff.rate * 100).toFixed(0)}%`} />}
+              </>
+            )}
+            {Number(payslip.overtimePay) > 0 && (
+              <>
+                <Line label="Overtime" value={formatCurrency(payslip.overtimePay)} />
+                {bd && <BreakdownDetail label="" detail={`${bd.overtime.hours}hrs × ${formatCurrency(bd.overtime.hourlyRate)}/hr × ${(bd.overtime.multiplier * 100).toFixed(0)}%`} />}
+              </>
+            )}
+            {Number(payslip.holidayPay) > 0 && (
+              <>
+                <Line label="Holiday Premiums" value={formatCurrency(payslip.holidayPay)} />
+                {bd && (
+                  <BreakdownDetail
+                    label=""
+                    detail={`${bd.holidayPay.unworkedRegular} unworked regular + ${bd.holidayPay.workedRegular} worked regular + ${bd.holidayPay.specialWorked} special`}
+                  />
+                )}
+              </>
+            )}
             {payslip.adjustments.filter((a) => a.type === "EARNING").map((a) => (
               <Line key={a.id} label={a.label} value={formatCurrency(a.amount)} />
             ))}
@@ -93,11 +129,30 @@ export default async function PayslipPage({ params }: { params: Promise<{ id: st
           {/* Deductions */}
           <section>
             <h3 className="mb-1 text-xs font-extrabold uppercase tracking-widest text-red-700">Deductions</h3>
-            {Number(payslip.lateAbsenceDeduction) > 0 ? <Line label="Late / Undertime" value={formatCurrency(payslip.lateAbsenceDeduction)} negative /> : null}
+            {Number(payslip.lateAbsenceDeduction) > 0 && (
+              <>
+                <Line label="Late / Absence" value={formatCurrency(payslip.lateAbsenceDeduction)} negative />
+                {bd && (
+                  <>
+                    {bd.absenceDeduction.amount > 0 && <BreakdownDetail label="" detail={`Absence: ${bd.absenceDeduction.days}d × ${formatCurrency(bd.absenceDeduction.dailyRate)}`} />}
+                    {bd.lateUndertime.amount > 0 && (
+                      <BreakdownDetail
+                        label=""
+                        detail={`Late: ${bd.lateUndertime.lateMinutes}min - ${bd.lateUndertime.graceMinutes}min grace · Undertime: ${bd.lateUndertime.undertimeMinutes}min`}
+                      />
+                    )}
+                  </>
+                )}
+              </>
+            )}
             <Line label="SSS Contribution" value={formatCurrency(payslip.sssContribution)} negative />
+            {bd && <BreakdownDetail label="" detail={`MSC ₱${bd.sss.msc.toLocaleString()} × ${(bd.sss.eeRate * 100).toFixed(0)}% EE`} />}
             <Line label="PhilHealth Contribution" value={formatCurrency(payslip.philhealthContribution)} negative />
+            {bd && <BreakdownDetail label="" detail={`₱${bd.philhealth.base.toLocaleString()} × ${(bd.philhealth.rate * 100).toFixed(0)}% ÷ 2`} />}
             <Line label="Pag-IBIG Contribution" value={formatCurrency(payslip.pagibigContribution)} negative />
+            {bd && <BreakdownDetail label="" detail={`Cap: ₱${bd.pagibig.cap}`} />}
             <Line label="Withholding Tax" value={formatCurrency(payslip.withholdingTax)} negative />
+            {bd && <BreakdownDetail label="" detail={`${bd.withholdingTax.bracket} on ₱${bd.withholdingTax.taxableIncome.toLocaleString()}`} />}
             {payslip.adjustments.filter((a) => a.type === "DEDUCTION").map((a) => (
               <Line key={a.id} label={a.label} value={formatCurrency(a.amount)} negative />
             ))}

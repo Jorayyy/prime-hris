@@ -610,6 +610,8 @@ model Payslip {
   netPay           Decimal @default(0) @db.Decimal(12, 2)
   thirteenthMonthYTD Decimal @default(0) @db.Decimal(12, 2)
 
+  breakdown Json? // Full calculation detail: { basicPay: { days, rate, amount }, ... }
+
   adjustments PayslipAdjustment[]
 
   createdAt DateTime @default(now())
