@@ -98,18 +98,20 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
-      <Sidebar role={user.role} company={company} logoUrl={settings?.logoUrl ?? null} />
+      <div className="no-print"><Sidebar role={user.role} company={company} logoUrl={settings?.logoUrl ?? null} /></div>
       <div className="flex min-w-0 flex-1 flex-col">
-        <Header
-          user={{
-            firstName: user.firstName,
-            lastName: user.lastName,
-            email: user.email,
-            role: user.role,
-          }}
-          company={company}
-          notifications={notifications}
-        />
+        <div className="no-print">
+          <Header
+            user={{
+              firstName: user.firstName,
+              lastName: user.lastName,
+              email: user.email,
+              role: user.role,
+            }}
+            company={company}
+            notifications={notifications}
+          />
+        </div>
         <main className="flex-1 overflow-y-auto p-6">{children}</main>
       </div>
     </div>

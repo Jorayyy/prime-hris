@@ -353,4 +353,14 @@ body {
     background: white;
     backdrop-filter: none;
   }
+
+  main {
+    padding: 0 !important;
+    overflow: visible !important;
+  }
+
+  main > div {
+    max-width: 100% !important;
+    margin: 0 !important;
+  }
 }
