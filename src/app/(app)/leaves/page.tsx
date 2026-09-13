@@ -1,3 +1,4 @@
+import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { getSessionUser, MANAGEMENT_ROLES } from "@/lib/auth";
 import { Card, CardHeader, Badge, statusTone, EmptyState } from "@/components/ui";
@@ -9,6 +10,7 @@ export const metadata = { title: "Leave Management" };
 
 export default async function LeavesPage() {
   const user = (await getSessionUser())!;
+  if (!MANAGEMENT_ROLES.includes(user.role)) notFound();
   const canApprove = MANAGEMENT_ROLES.includes(user.role);
 
   const [leaveTypes, myRequests, pendingQueue, balances] = await Promise.all([

@@ -1,5 +1,6 @@
-﻿import { db } from "@/lib/db";
-import { getSessionUser } from "@/lib/auth";
+﻿import { notFound } from "next/navigation";
+import { db } from "@/lib/db";
+import { getSessionUser, SYSTEM_ROLES } from "@/lib/auth";
 import { Card, CardHeader, EmptyState } from "@/components/ui";
 import { createUserAction, updateUserAction } from "@/lib/actions/users";
 import { UserRow, CreateForm } from "./forms";
@@ -8,9 +9,7 @@ export const metadata = { title: "User Accounts" };
 
 export default async function UsersPage() {
   const user = (await getSessionUser())!;
-  if (user.role !== "SUPER_ADMIN") {
-    return <EmptyState title="Not authorized" hint="Only the system owner can manage accounts." />;
-  }
+  if (!SYSTEM_ROLES.includes(user.role)) notFound();
 
   const [users, unlinked] = await Promise.all([
     db.user.findMany({

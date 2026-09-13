@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { Plus } from "lucide-react";
+import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { getSessionUser, HR_ROLES, MANAGEMENT_ROLES } from "@/lib/auth";
 import { Card, Badge, statusTone, EmptyState, PageHeader } from "@/components/ui";
@@ -46,13 +47,8 @@ export default async function EmployeesPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const user = await getSessionUser();
-  if (!user) {
-    return <EmptyState title="Not authenticated" hint="Please log in to view employee records." />;
-  }
-  if (!MANAGEMENT_ROLES.includes(user.role)) {
-    return <EmptyState title="Not authorized" hint="You do not have access to employee records." />;
-  }
+  const user = (await getSessionUser())!;
+  if (!MANAGEMENT_ROLES.includes(user.role)) notFound();
 
   const { q = "", page = "1", status = "" } = await searchParams;
   const pageNum = Math.max(1, parseInt(String(page), 10) || 1);

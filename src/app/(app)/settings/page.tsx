@@ -1,3 +1,4 @@
+import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { getSessionUser, HR_ROLES } from "@/lib/auth";
 import { Card, CardHeader, EmptyState } from "@/components/ui";
@@ -12,9 +13,7 @@ export const metadata = { title: "Settings" };
 
 export default async function SettingsPage() {
   const user = (await getSessionUser())!;
-  if (!HR_ROLES.includes(user.role)) {
-    return <EmptyState title="Not authorized" hint="Settings are restricted to HR and Admin." />;
-  }
+  if (!HR_ROLES.includes(user.role)) notFound();
 
   const [settings, sites, departments, campaigns, positions, templates, allowedIps, groups] = await Promise.all([
     db.companySettings.findFirst(),

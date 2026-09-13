@@ -46,9 +46,9 @@ export async function createSession(userId: string, meta?: { ip?: string; userAg
     expires: expiresAt,
   });
 
-  // Readable cookie for Socket.io auth (client-side JS needs this)
-  cookieStore.set("hris_token", rawToken, {
-    httpOnly: false,
+  // Session cookie — httpOnly, secure, sameSite
+  cookieStore.set(SESSION_COOKIE, rawToken, {
+    httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
@@ -116,7 +116,6 @@ export async function destroySession() {
       .catch(() => {});
   }
   cookieStore.delete(SESSION_COOKIE);
-  cookieStore.delete("hris_token");
 }
 
 export async function requireUser(): Promise<SessionUser> {

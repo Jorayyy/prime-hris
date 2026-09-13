@@ -68,16 +68,21 @@ async function nextEmployeeNumber(): Promise<string> {
 }
 
 export async function createEmployeeAction(_prev: EmployeeFormState, formData: FormData): Promise<EmployeeFormState> {
-  try {
-    await requireRole("ADMIN", "HR");
-  } catch {
-    throw new ForbiddenError();
-  }
+  const actor = await requireRole("ADMIN", "HR");
 
   const parsed = employeeSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Please check the form fields." };
   }
+
+  // HR can only create EMPLOYEE/MANAGER — restrict higher roles
+  const allowedRoles = ["ADMIN", "HR", "PAYROLL"].includes(actor.role)
+    ? ["ADMIN", "HR", "PAYROLL", "MANAGER", "EMPLOYEE"]
+    : ["MANAGER", "EMPLOYEE"];
+  if (!allowedRoles.includes(parsed.data.role)) {
+    return { error: "You do not have permission to assign this role." };
+  }
+
   const data = parsed.data;
 
   const existingUser = await db.user.findUnique({ where: { email: data.workEmail.toLowerCase() } });

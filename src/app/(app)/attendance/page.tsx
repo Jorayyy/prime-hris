@@ -1,3 +1,4 @@
+import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { getSessionUser, MANAGEMENT_ROLES } from "@/lib/auth";
 import { Card, CardHeader, Badge, statusTone, EmptyState } from "@/components/ui";
@@ -12,9 +13,7 @@ export default async function AttendancePage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const user = (await getSessionUser())!;
-  if (!MANAGEMENT_ROLES.includes(user.role)) {
-    return <EmptyState title="Not authorized" hint="Attendance board is for managers and HR." />;
-  }
+  if (!MANAGEMENT_ROLES.includes(user.role)) notFound();
 
   const sp = await searchParams;
   const dateParam = typeof sp.date === "string" ? sp.date : formatDateOnly(new Date());

@@ -216,7 +216,7 @@ async function main() {
       create: { email, passwordHash: empHash, role: "EMPLOYEE" },
     });
     const pin = `123${e.num.slice(-2)}0`;
-    const dailyRate = Math.round(((e.salary * 12) / 313) * 100) / 100;
+    const dailyRate = Math.round(((e.salary * 12) / 312) * 100) / 100;
     const emp = await db.employee.upsert({
       where: { employeeNumber: e.num },
       update: {},

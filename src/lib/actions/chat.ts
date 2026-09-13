@@ -1,6 +1,6 @@
 "use server";
 
-import { requireUser } from "@/lib/auth";
+import { requireUser, requireRole } from "@/lib/auth";
 import { db } from "@/lib/db";
 
 export type ChatUser = {
@@ -275,7 +275,7 @@ export async function deleteMessage(messageId: string, conversationId: string) {
 }
 
 export async function deleteConversation(conversationId: string) {
-  const user = await requireUser();
+  const user = await requireRole("ADMIN", "SUPER_ADMIN");
 
   const participant = await db.chatParticipant.findUnique({
     where: {

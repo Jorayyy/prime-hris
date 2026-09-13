@@ -57,7 +57,7 @@ export function computeSss(
   opts?: { eeRate?: number; erRate?: number; ecRate?: number },
 ): SssResult {
   const msc = sssMsc(monthlySalary);
-  const eeRate = opts?.eeRate ?? 0.05;
+  const eeRate = opts?.eeRate ?? 0.045;
   const erRate = opts?.erRate ?? 0.095;
   const ecRate = opts?.ecRate ?? 0.005;
   return {
@@ -161,7 +161,7 @@ export function computeWithholdingTax(
 // ---------------------------------------------------------------------------
 
 /** Days-per-year factor for converting monthly salary to daily rate (monthly-paid). */
-export const MONTHLY_PAID_FACTOR = 313;
+export const MONTHLY_PAID_FACTOR = 312;
 
 export function dailyRateFromMonthly(monthly: number): number {
   return round2((monthly * 12) / MONTHLY_PAID_FACTOR);
@@ -318,7 +318,7 @@ export function computePayslip(input: PayslipInput): PayslipOutput {
   const withholdingTax = computeWithholdingTax(taxableIncome, input.payFrequency, govRates?.withholdingTax);
 
   const otherDeductions = round2(input.deductions.reduce((s, d) => s + d.amount, 0));
-  const totalDeductions = round2(statutoryDeductions + withholdingTax + otherDeductions + absenceDeduction + lateUndertimeDeduction);
+  const totalDeductions = round2(statutoryDeductions + withholdingTax + otherDeductions);
   const netPay = round2(grossPay - totalDeductions);
 
   const sssDetail = computeSss(input.monthlyRate, govRates?.sss);
@@ -375,7 +375,7 @@ export function computePayslip(input: PayslipInput): PayslipOutput {
     },
     taxableGross,
     grossPay,
-    sss: { msc: sssDetail.msc, eeRate: govRates?.sss?.eeRate ?? 0.05, ee: sssDetail.ee, er: sssDetail.er, ec: sssDetail.ec },
+    sss: { msc: sssDetail.msc, eeRate: govRates?.sss?.eeRate ?? 0.045, ee: sssDetail.ee, er: sssDetail.er, ec: sssDetail.ec },
     philhealth: { base: Math.min(Math.max(input.monthlyRate, govRates?.philhealth?.floor ?? 10000), govRates?.philhealth?.ceiling ?? 100000), rate: govRates?.philhealth?.rate ?? 0.05, ee: philhealthDetail },
     pagibig: { base: input.monthlyRate, rate: govRates?.pagibig?.rate ?? 0.02, cap: govRates?.pagibig?.cap ?? 100, ee: pagibigDetail },
     withholdingTax: { taxableIncome, bracket: taxBracketLabel, amount: withholdingTax },

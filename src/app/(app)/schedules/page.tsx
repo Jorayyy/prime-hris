@@ -1,5 +1,6 @@
+import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
-import { getSessionUser } from "@/lib/auth";
+import { getSessionUser, HR_ROLES } from "@/lib/auth";
 import { Card, CardHeader, EmptyState } from "@/components/ui";
 import { nightDiffMinutesForShift } from "@/lib/time";
 import ScheduleForm from "./schedule-form";
@@ -10,9 +11,7 @@ export const metadata = { title: "Schedules" };
 
 export default async function SchedulesPage() {
   const user = (await getSessionUser())!;
-  if (!["SUPER_ADMIN", "ADMIN", "HR"].includes(user.role)) {
-    return <EmptyState title="Not authorized" hint="Schedules are managed by HR." />;
-  }
+  if (!HR_ROLES.includes(user.role)) notFound();
 
   const [templates, employees, assignments] = await Promise.all([
     db.shiftTemplate.findMany({ where: { isActive: true }, orderBy: { startTime: "asc" } }),

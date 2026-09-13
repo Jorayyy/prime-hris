@@ -82,11 +82,14 @@ async function setPeriodStatus(periodId: string, action: "PROCESS" | "APPROVE" |
   if (!period) return { error: "Period not found." };
 
   if (action === "PROCESS") {
-    if (!["DRAFT", "PROCESSING"].includes(period.status)) {
-      return { error: "Only DRAFT or PROCESSING periods can be processed." };
+    // Atomic status check — prevents concurrent processing
+    const updated = await db.payPeriod.updateMany({
+      where: { id: periodId, status: { in: ["DRAFT", "PROCESSING"] } },
+      data: { status: "PROCESSING" },
+    });
+    if (updated.count === 0) {
+      return { error: "Period is already being processed or is in a non-processable state." };
     }
-
-    await db.payPeriod.update({ where: { id: periodId }, data: { status: "PROCESSING" } });
 
     try {
       const [employees, settings, holidays] = await Promise.all([
@@ -360,7 +363,7 @@ export async function addAdjustmentAction(_prev: { error?: string }, formData: F
     const newGross = round2(baseTaxableGross + taxableExtra + nonTaxableExtra);
     const taxableIncome = Math.max(
       0,
-      round2(newGross - Number(payslip.lateAbsenceDeduction) - statutory),
+      round2(newGross - statutory),
     );
 
     const withholdingTax = computeWithholdingTax(taxableIncome, payslip.payPeriod.frequency as PayFrequencyCode);
@@ -416,11 +419,19 @@ export async function processGroupAction(_prev: { error?: string; ok?: boolean }
   if (!group) return { error: "Group not found." };
   if (group.siteId !== parsed.data.siteId) return { error: "Group does not belong to the selected site." };
 
-  // Check if this group+site was already processed
-  const existing = await db.processedGroup.findUnique({
-    where: { payPeriodId_groupId_siteId: { payPeriodId: parsed.data.periodId, groupId: parsed.data.groupId, siteId: parsed.data.siteId } },
-  });
-  if (existing) return { error: "This group has already been processed for this period." };
+  // Atomic check — try to create, catch duplicate
+  try {
+    await db.processedGroup.create({
+      data: {
+        payPeriodId: parsed.data.periodId,
+        groupId: parsed.data.groupId,
+        siteId: parsed.data.siteId,
+        employeeCount: 0,
+      },
+    });
+  } catch {
+    return { error: "This group has already been processed for this period." };
+  }
 
   // Set period to PROCESSING
   await db.payPeriod.update({ where: { id: period.id }, data: { status: "PROCESSING" } });
@@ -601,14 +612,16 @@ export async function processGroupAction(_prev: { error?: string; ok?: boolean }
     }
   }
 
-  // Record that this group was processed
-  await db.processedGroup.create({
-    data: {
-      payPeriodId: period.id,
-      groupId: parsed.data.groupId,
-      siteId: parsed.data.siteId,
-      employeeCount: processed,
+  // Update the processed group record with actual employee count
+  await db.processedGroup.update({
+    where: {
+      payPeriodId_groupId_siteId: {
+        payPeriodId: period.id,
+        groupId: parsed.data.groupId,
+        siteId: parsed.data.siteId,
+      },
     },
+    data: { employeeCount: processed },
   });
 
   await recordAudit({

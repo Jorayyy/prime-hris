@@ -1,5 +1,6 @@
+import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
-import { getSessionUser } from "@/lib/auth";
+import { getSessionUser, PAYROLL_ROLES } from "@/lib/auth";
 import { Card, EmptyState } from "@/components/ui";
 import { formatDateTime } from "@/lib/format";
 
@@ -11,9 +12,7 @@ export default async function AuditPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const user = (await getSessionUser())!;
-  if (!["SUPER_ADMIN", "ADMIN"].includes(user.role)) {
-    return <EmptyState title="Not authorized" hint="Audit log is restricted to administrators." />;
-  }
+  if (!PAYROLL_ROLES.includes(user.role)) notFound();
 
   const sp = await searchParams;
   const page = Math.max(1, parseInt(String(sp.page ?? "1"), 10) || 1);
