@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { AlertTriangle, Eye, Play, Loader2, ChevronDown, ChevronUp } from "lucide-react";
+import { useState, useEffect } from "react";
+import { AlertTriangle, Loader2, ChevronDown, ChevronUp } from "lucide-react";
 import { previewPayrollAction } from "@/lib/actions/payroll";
 import { formatCurrency } from "@/lib/format";
 
@@ -30,7 +30,7 @@ type PreviewRow = {
   withholdingTax: number;
   totalDeductions: number;
   netPay: number;
-  exceptions: Array<{ type: string; severity: string; message: string }>;
+  exceptions: { type: string; severity: string; message: string }[];
 };
 
 type ExceptionRow = {
@@ -44,14 +44,10 @@ export default function PayrollPreview({
   periodId,
   siteId,
   groupId,
-  groupName,
-  onProcess,
 }: {
   periodId: string;
   siteId: string;
   groupId: string;
-  groupName: string;
-  onProcess: () => void;
 }) {
   const [loading, setLoading] = useState(false);
   const [rows, setRows] = useState<PreviewRow[]>([]);
@@ -59,93 +55,74 @@ export default function PayrollPreview({
   const [loaded, setLoaded] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
 
-  async function loadPreview() {
+  useEffect(() => {
+    let cancelled = false;
     setLoading(true);
-    try {
-      const result = await previewPayrollAction(periodId, siteId, groupId);
+    setLoaded(false);
+    setRows([]);
+    setExceptions([]);
+
+    previewPayrollAction(periodId, siteId, groupId).then((result) => {
+      if (cancelled) return;
       setRows(result.rows);
       setExceptions(result.exceptions);
       setLoaded(true);
-    } catch {
-      setRows([]);
-      setExceptions([]);
-      setLoaded(true);
-    }
-    setLoading(false);
-  }
+      setLoading(false);
+    }).catch(() => {
+      if (!cancelled) setLoading(false);
+    });
+
+    return () => { cancelled = true; };
+  }, [periodId, siteId, groupId]);
 
   const totals = rows.reduce(
     (acc, r) => ({
-      gross: acc.gross + r.grossPay,
-      deductions: acc.deductions + r.totalDeductions,
-      net: acc.net + r.netPay,
       basic: acc.basic + r.basicPay,
       nd: acc.nd + r.nightDiffPay,
       ot: acc.ot + r.overtimePay,
       holiday: acc.holiday + r.holidayPay,
+      gross: acc.gross + r.grossPay,
+      deductions: acc.deductions + r.totalDeductions,
+      net: acc.net + r.netPay,
     }),
-    { gross: 0, deductions: 0, net: 0, basic: 0, nd: 0, ot: 0, holiday: 0 },
+    { basic: 0, nd: 0, ot: 0, holiday: 0, gross: 0, deductions: 0, net: 0 },
   );
 
   const errorCount = exceptions.filter((e) => e.severity === "ERROR").length;
   const warnCount = exceptions.filter((e) => e.severity === "WARNING").length;
 
-  if (!loaded && !loading) {
-    return (
-      <button
-        onClick={loadPreview}
-        className="flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm font-semibold text-foreground hover:bg-surface-hover transition-colors"
-      >
-        <Eye className="h-4 w-4" /> Preview {groupName}
-      </button>
-    );
-  }
-
   if (loading) {
     return (
-      <div className="flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm text-muted">
-        <Loader2 className="h-4 w-4 animate-spin" /> Loading preview...
+      <div className="flex items-center justify-center gap-2 rounded-lg border border-border bg-slate-50 px-4 py-6 text-sm text-muted">
+        <Loader2 className="h-4 w-4 animate-spin" /> Calculating payslips...
       </div>
     );
   }
 
-  return (
-    <div className="mt-3 rounded-xl border border-border bg-white overflow-hidden">
-      <div className="flex items-center justify-between border-b border-border px-4 py-3">
-        <div className="flex items-center gap-3">
-          <h3 className="text-sm font-bold">Preview — {groupName}</h3>
-          {exceptions.length > 0 && (
-            <span className="flex items-center gap-1 text-xs">
-              {errorCount > 0 && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2 py-0.5 font-semibold text-red-700">
-                  <AlertTriangle className="h-3 w-3" /> {errorCount} error{errorCount > 1 ? "s" : ""}
-                </span>
-              )}
-              {warnCount > 0 && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 font-semibold text-amber-700">
-                  {warnCount} warning{warnCount > 1 ? "s" : ""}
-                </span>
-              )}
-            </span>
-          )}
-        </div>
-        <button
-          onClick={onProcess}
-          className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-bold text-white hover:bg-primary-dark transition-colors"
-        >
-          <Play className="h-3 w-3" /> Process
-        </button>
-      </div>
+  if (!loaded) return null;
 
+  return (
+    <div className="rounded-xl border border-border bg-white overflow-hidden">
       {exceptions.length > 0 && (
         <div className="border-b border-border bg-amber-50/50 px-4 py-3">
-          <p className="mb-2 text-xs font-bold text-amber-800">Exceptions</p>
-          <div className="max-h-32 space-y-1 overflow-y-auto">
+          <div className="mb-1 flex items-center gap-2 text-xs font-bold text-amber-800">
+            <span>Exceptions</span>
+            {errorCount > 0 && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 font-semibold text-red-700">
+                <AlertTriangle className="h-3 w-3" /> {errorCount}
+              </span>
+            )}
+            {warnCount > 0 && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 font-semibold text-amber-700">
+                {warnCount}
+              </span>
+            )}
+          </div>
+          <div className="max-h-24 space-y-0.5 overflow-y-auto text-xs text-amber-700">
             {exceptions.map((ex, i) => (
-              <p key={i} className="text-xs text-amber-700">
-                <span className="font-semibold">{rows.find((r) => r.employeeId === ex.employeeId)?.employeeName ?? "Unknown"}</span>
-                {" — "}
-                {ex.message}
+              <p key={i}>
+                <span className="font-semibold">{rows.find((r) => r.employeeId === ex.employeeId)?.employeeName ?? "?"}</span>
+                {" — "}{ex.message}
               </p>
             ))}
           </div>
@@ -157,15 +134,15 @@ export default function PayrollPreview({
           <thead>
             <tr className="border-b border-border bg-slate-50 text-left uppercase tracking-wide text-muted">
               <th className="px-3 py-2 font-semibold">Employee</th>
-              <th className="px-3 py-2 font-semibold text-right">Days</th>
-              <th className="px-3 py-2 font-semibold text-right">Basic</th>
-              <th className="px-3 py-2 font-semibold text-right">ND</th>
-              <th className="px-3 py-2 font-semibold text-right">OT</th>
-              <th className="px-3 py-2 font-semibold text-right">Holiday</th>
-              <th className="px-3 py-2 font-semibold text-right">Gross</th>
-              <th className="px-3 py-2 font-semibold text-right">Deductions</th>
-              <th className="px-3 py-2 font-semibold text-right">Net Pay</th>
-              <th className="px-3 py-2 font-semibold text-center">Issues</th>
+              <th className="px-3 py-2 text-right font-semibold">Days</th>
+              <th className="px-3 py-2 text-right font-semibold">Basic</th>
+              <th className="px-3 py-2 text-right font-semibold">ND</th>
+              <th className="px-3 py-2 text-right font-semibold">OT</th>
+              <th className="px-3 py-2 text-right font-semibold">Holiday</th>
+              <th className="px-3 py-2 text-right font-semibold">Gross</th>
+              <th className="px-3 py-2 text-right font-semibold">Deductions</th>
+              <th className="px-3 py-2 text-right font-semibold">Net Pay</th>
+              <th className="px-3 py-2 text-center font-semibold">Issues</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
@@ -216,7 +193,7 @@ export default function PayrollPreview({
                         <div className="mt-1 grid grid-cols-4 gap-2 text-[10px] text-muted">
                           <span>Absent: {r.absentDays}d</span>
                           <span>Late: {r.lateMinutes}min</span>
-                          <span>Undertime: {r.lateUndertimeDeduction > 0 ? "Yes" : "No"}</span>
+                          <span>Undertime: {r.undertimeMinutes}min</span>
                           <span>ND: {r.nightDiffMinutes}min</span>
                         </div>
                       </td>

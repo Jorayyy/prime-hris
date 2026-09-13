@@ -33,6 +33,8 @@ export default async function PayrollPage() {
     db.payPeriod.count({ where: { archivedAt: { not: null } } }),
   ]);
 
+  const unprocessedPeriods = periods.filter((p) => ["DRAFT", "PROCESSING", "FOR_APPROVAL"].includes(p.status));
+
   return (
     <>
       <div className="mb-6">
@@ -49,19 +51,21 @@ export default async function PayrollPage() {
       </Card>
 
       <Card>
-        <div className="flex items-center justify-between px-5 pt-5">
+        <div className="flex items-center justify-between border-b border-[var(--border)] px-5 py-4">
           <div>
             <h2 className="text-sm font-bold">Pay Periods</h2>
             <p className="text-xs text-[var(--muted)]">{periods.length} active period{periods.length === 1 ? "" : "s"}</p>
           </div>
           <div className="flex items-center gap-2">
-            {periods.filter((p) => ["DRAFT", "PROCESSING", "FOR_APPROVAL"].includes(p.status)).length > 0 && (
+            {unprocessedPeriods.length > 0 && (
               <ProcessGroupModal
-                periodId={periods.find((p) => ["DRAFT", "PROCESSING", "FOR_APPROVAL"].includes(p.status))!.id}
+                periods={unprocessedPeriods.map((p) => ({
+                  id: p.id,
+                  label: `${formatDate(p.startDate)} – ${formatDate(p.endDate)}`,
+                  processed: p.processedGroups.map((pg) => ({ groupId: pg.groupId, siteId: pg.siteId })),
+                }))}
                 sites={sites}
                 groups={groups as any}
-                processed={periods.find((p) => ["DRAFT", "PROCESSING", "FOR_APPROVAL"].includes(p.status))!.processedGroups.map((pg) => ({ groupId: pg.groupId, siteId: pg.siteId }))}
-                triggerLabel="Process Group"
               />
             )}
             {archivedCount > 0 && (
@@ -87,7 +91,7 @@ export default async function PayrollPage() {
                   <th className="px-5 py-3 font-semibold">Payslips</th>
                   <th className="px-5 py-3 font-semibold">Groups Processed</th>
                   <th className="px-5 py-3 font-semibold">Status</th>
-                  <th className="px-5 py-3 font-semibold">Actions</th>
+                  <th className="px-5 py-3 font-semibold text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--border)]">
@@ -103,7 +107,7 @@ export default async function PayrollPage() {
                     <td className="px-5 py-3 tabular-nums">{p._count.payslips}</td>
                     <td className="px-5 py-3">
                       {p.processedGroups.length === 0 ? (
-                        <span className="text-xs text-muted">None</span>
+                        <span className="text-xs text-muted">—</span>
                       ) : (
                         <div className="flex flex-wrap gap-1">
                           {p.processedGroups.map((pg) => (
@@ -121,22 +125,14 @@ export default async function PayrollPage() {
                       </Badge>
                     </td>
                     <td className="px-5 py-3">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center justify-end gap-2">
                         {p._count.payslips > 0 && (
                           <Link
                             href={`/payroll/${p.id}`}
                             className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-surface-hover transition-colors"
                           >
-                            <Eye className="h-3.5 w-3.5" /> View Payslips
+                            <Eye className="h-3.5 w-3.5" /> View
                           </Link>
-                        )}
-                        {["DRAFT", "PROCESSING"].includes(p.status) && (
-                          <ProcessGroupModal
-                            periodId={p.id}
-                            sites={sites}
-                            groups={groups as any}
-                            processed={p.processedGroups.map((pg) => ({ groupId: pg.groupId, siteId: pg.siteId }))}
-                          />
                         )}
                         {["DRAFT", "FOR_APPROVAL"].includes(p.status) && (
                           <ArchiveButton periodId={p.id} />
