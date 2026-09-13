@@ -10,7 +10,9 @@ import {
   compute13thMonth,
   computeWithholdingTax,
   round2,
+  buildGovRateOverrides,
   type PayFrequencyCode,
+  type GovRateOverrides,
 } from "@/lib/payroll/ph";
 
 const createPeriodSchema = z.object({
@@ -18,6 +20,13 @@ const createPeriodSchema = z.object({
   endDate: z.string(),
   payDate: z.string(),
 });
+
+async function loadGovRates(year: number, frequency: string): Promise<GovRateOverrides> {
+  const records = await db.govContributionTable.findMany({
+    where: { isActive: true },
+  });
+  return buildGovRateOverrides(records, year, frequency);
+}
 
 export async function createPayPeriodAction(_prev: { error?: string }, formData: FormData) {
   try {
@@ -90,6 +99,9 @@ async function setPeriodStatus(periodId: string, action: "PROCESS" | "APPROVE" |
         }),
       ]);
 
+      const year = new Date(period.startDate).getFullYear();
+      const govRates = await loadGovRates(year, period.frequency);
+
       // Delete previous drafts for clean reprocessing
       await db.payslip.deleteMany({ where: { payPeriodId: periodId } });
 
@@ -138,14 +150,13 @@ async function setPeriodStatus(periodId: string, action: "PROCESS" | "APPROVE" |
             }
           }
 
-          void absentDays;
-
           const monthlyRate = Number(emp.basicSalary);
           const result = computePayslip({
             monthlyRate,
             payFrequency: period.frequency as PayFrequencyCode,
             daysWorked: presentDays,
             paidLeaveDays,
+            absentDays,
             lateMinutes,
             undertimeMinutes,
             nightDiffMinutes: ndMinutes,
@@ -158,6 +169,7 @@ async function setPeriodStatus(periodId: string, action: "PROCESS" | "APPROVE" |
             deductions: [],
             thirteenthMonthYtd: 0,
             graceMinutes: settings?.graceMinutes ?? 5,
+            govRates,
           });
 
           // 13th month YTD: basic earned this calendar year (incl. this run) / 12
@@ -184,7 +196,7 @@ async function setPeriodStatus(periodId: string, action: "PROCESS" | "APPROVE" |
               overtimePay: result.overtimePay,
               holidayPay: result.holidayPay,
               grossPay: result.grossPay,
-              lateAbsenceDeduction: result.lateAbsenceDeduction,
+              lateAbsenceDeduction: round2(result.absenceDeduction + result.lateUndertimeDeduction),
               sssContribution: result.sss,
               philhealthContribution: result.philhealth,
               pagibigContribution: result.pagibig,
@@ -396,6 +408,10 @@ export async function processGroupAction(_prev: { error?: string; ok?: boolean }
     where: { date: { gte: period.startDate, lte: period.endDate } },
   });
 
+  const settings = await db.companySettings.findFirst();
+  const year = new Date(period.startDate).getFullYear();
+  const govRates = await loadGovRates(year, period.frequency);
+
   let processed = 0;
   let errorCount = 0;
 
@@ -437,14 +453,13 @@ export async function processGroupAction(_prev: { error?: string; ok?: boolean }
         }
       }
 
-      void absentDays;
-
-      const monthlyRate = Number(group.monthlyRate);
+      const monthlyRate = Number(emp.basicSalary);
       const result = computePayslip({
         monthlyRate,
-        payFrequency: group.payFrequency as PayFrequencyCode,
+        payFrequency: period.frequency as PayFrequencyCode,
         daysWorked: presentDays,
         paidLeaveDays,
+        absentDays,
         lateMinutes,
         undertimeMinutes,
         nightDiffMinutes: ndMinutes,
@@ -456,7 +471,8 @@ export async function processGroupAction(_prev: { error?: string; ok?: boolean }
         nonTaxableEarnings: [],
         deductions: [],
         thirteenthMonthYtd: 0,
-        graceMinutes: 5,
+        graceMinutes: settings?.graceMinutes ?? 5,
+        govRates,
       });
 
       const yearStart = new Date(new Date(period.startDate).getFullYear(), 0, 1);
@@ -482,7 +498,7 @@ export async function processGroupAction(_prev: { error?: string; ok?: boolean }
           overtimePay: result.overtimePay,
           holidayPay: result.holidayPay,
           grossPay: result.grossPay,
-          lateAbsenceDeduction: result.lateAbsenceDeduction,
+          lateAbsenceDeduction: round2(result.absenceDeduction + result.lateUndertimeDeduction),
           sssContribution: result.sss,
           philhealthContribution: result.philhealth,
           pagibigContribution: result.pagibig,
@@ -503,7 +519,7 @@ export async function processGroupAction(_prev: { error?: string; ok?: boolean }
           overtimePay: result.overtimePay,
           holidayPay: result.holidayPay,
           grossPay: result.grossPay,
-          lateAbsenceDeduction: result.lateAbsenceDeduction,
+          lateAbsenceDeduction: round2(result.absenceDeduction + result.lateUndertimeDeduction),
           sssContribution: result.sss,
           philhealthContribution: result.philhealth,
           pagibigContribution: result.pagibig,

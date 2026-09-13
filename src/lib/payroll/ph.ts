@@ -183,7 +183,7 @@ export const RATES = {
 } as const;
 
 /** Night-differential pay given ND minutes worked inside 10PM–6AM window. */
-export function computeNightDiffPay(hourlyRate: number, nightDiffMinutes: number, ndRate = RATES.NIGHT_DIFF): number {
+export function computeNightDiffPay(hourlyRate: number, nightDiffMinutes: number, ndRate: number = RATES.NIGHT_DIFF): number {
   return round2(hourlyRate * ndRate * (nightDiffMinutes / 60));
 }
 
@@ -200,6 +200,14 @@ export function compute13thMonth(totalBasicForYear: number): number {
 // Full payslip calculation
 // ---------------------------------------------------------------------------
 
+export type GovRateOverrides = {
+  sss?: { eeRate?: number; erRate?: number; ecRate?: number };
+  philhealth?: { rate?: number; floor?: number; ceiling?: number };
+  pagibig?: { rate?: number; cap?: number; threshold?: number };
+  withholdingTax?: TaxBracket[];
+  nightDiffRate?: number;
+};
+
 export type PayslipInput = {
   monthlyRate: number;
   payFrequency: PayFrequencyCode;
@@ -207,6 +215,8 @@ export type PayslipInput = {
   daysWorked: number;
   /** Paid leave days counted as work. */
   paidLeaveDays: number;
+  /** Absent days (unpaid). */
+  absentDays: number;
   lateMinutes: number;
   undertimeMinutes: number;
   nightDiffMinutes: number;
@@ -221,6 +231,7 @@ export type PayslipInput = {
   deductions: Array<{ label: string; amount: number }>;
   thirteenthMonthYtd: number;
   graceMinutes?: number;
+  govRates?: GovRateOverrides;
 };
 
 export type PayslipOutput = {
@@ -230,7 +241,8 @@ export type PayslipOutput = {
   nightDiffPay: number;
   overtimePay: number;
   holidayPay: number;
-  lateAbsenceDeduction: number;
+  absenceDeduction: number;
+  lateUndertimeDeduction: number;
   taxableGross: number;
   nonTaxableGross: number;
   grossPay: number;
@@ -258,33 +270,37 @@ export function computePayslip(input: PayslipInput): PayslipOutput {
         input.specialHolidaysWorkedDays * (RATES.HOLIDAY_SPECIAL_WORKED - 1)),
   );
 
-  const nightDiffPay = computeNightDiffPay(hourlyRate, input.nightDiffMinutes);
+  const ndRate = input.govRates?.nightDiffRate ?? RATES.NIGHT_DIFF;
+  const nightDiffPay = computeNightDiffPay(hourlyRate, input.nightDiffMinutes, ndRate);
   const overtimePay = computeOvertimePay(hourlyRate, input.approvedOvertimeHours);
 
   const grace = input.graceMinutes ?? 0;
   const billableLate = Math.max(0, input.lateMinutes - grace);
-  const lateAbsenceDeduction = round2(
+  const lateUndertimeDeduction = round2(
     (hourlyRate / 60) * billableLate + (hourlyRate / 60) * input.undertimeMinutes,
   );
+
+  const absenceDeduction = round2(dailyRate * input.absentDays);
 
   const taxableAdditions = input.taxableEarnings.reduce((s, a) => s + a.amount, 0);
   const nonTaxableAdditions = input.nonTaxableEarnings.reduce((s, a) => s + a.amount, 0);
 
   const taxableGross = round2(
-    Math.max(0, basicPay + holidayPay + nightDiffPay + overtimePay + taxableAdditions - lateAbsenceDeduction),
+    Math.max(0, basicPay + holidayPay + nightDiffPay + overtimePay + taxableAdditions - absenceDeduction - lateUndertimeDeduction),
   );
   const grossPay = round2(taxableGross + nonTaxableAdditions);
 
-  const sss = computeSss(input.monthlyRate).ee;
-  const philhealth = computePhilHealth(input.monthlyRate);
-  const pagibig = computePagIbig(input.monthlyRate);
+  const govRates = input.govRates;
+  const sss = computeSss(input.monthlyRate, govRates?.sss).ee;
+  const philhealth = computePhilHealth(input.monthlyRate, govRates?.philhealth);
+  const pagibig = computePagIbig(input.monthlyRate, govRates?.pagibig);
 
   const statutoryDeductions = round2(sss + philhealth + pagibig);
   const taxableIncome = round2(Math.max(0, taxableGross - statutoryDeductions));
-  const withholdingTax = computeWithholdingTax(taxableIncome, input.payFrequency);
+  const withholdingTax = computeWithholdingTax(taxableIncome, input.payFrequency, govRates?.withholdingTax);
 
   const otherDeductions = round2(input.deductions.reduce((s, d) => s + d.amount, 0));
-  const totalDeductions = round2(statutoryDeductions + withholdingTax + otherDeductions);
+  const totalDeductions = round2(statutoryDeductions + withholdingTax + otherDeductions + absenceDeduction + lateUndertimeDeduction);
   const netPay = round2(grossPay - totalDeductions);
 
   return {
@@ -294,7 +310,8 @@ export function computePayslip(input: PayslipInput): PayslipOutput {
     nightDiffPay,
     overtimePay,
     holidayPay,
-    lateAbsenceDeduction,
+    absenceDeduction,
+    lateUndertimeDeduction,
     taxableGross,
     nonTaxableGross: round2(nonTaxableAdditions),
     grossPay,
@@ -310,4 +327,59 @@ export function computePayslip(input: PayslipInput): PayslipOutput {
 
 export function round2(n: number): number {
   return Math.round((n + Number.EPSILON) * 100) / 100;
+}
+
+// ---------------------------------------------------------------------------
+// Load rates from GovContributionTable DB records
+// ---------------------------------------------------------------------------
+
+type GovRecord = {
+  type: string;
+  effectiveYear: number;
+  frequency: string;
+  brackets: unknown;
+};
+
+export function buildGovRateOverrides(
+  records: GovRecord[],
+  year: number,
+  frequency: string,
+): GovRateOverrides {
+  const overrides: GovRateOverrides = {};
+
+  for (const rec of records) {
+    if (rec.effectiveYear !== year) continue;
+    const b = rec.brackets as Record<string, unknown>;
+
+    switch (rec.type) {
+      case "SSS":
+        overrides.sss = {
+          eeRate: b.eeRate as number,
+          erRate: b.erRate as number,
+          ecRate: b.ecRate as number,
+        };
+        break;
+      case "PHILHEALTH":
+        overrides.philhealth = {
+          rate: b.rate as number,
+          floor: b.floor as number,
+          ceiling: b.ceiling as number,
+        };
+        break;
+      case "PAGIBIG":
+        overrides.pagibig = {
+          rate: b.rate as number,
+          cap: b.cap as number,
+          threshold: b.threshold as number,
+        };
+        break;
+      case "WITHHOLDING_TAX":
+        if (rec.frequency === frequency || rec.frequency === "MONTHLY") {
+          overrides.withholdingTax = b.brackets as TaxBracket[];
+        }
+        break;
+    }
+  }
+
+  return overrides;
 }
