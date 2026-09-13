@@ -28,6 +28,8 @@ function isWeekend(d: Date) {
 async function main() {
   console.log("Clearing old data...");
   await db.payslip.deleteMany();
+  await db.payrollException.deleteMany();
+  await db.processedGroup.deleteMany();
   await db.payPeriod.deleteMany();
   await db.shiftAssignment.deleteMany();
   await db.timeLog.deleteMany();
@@ -97,7 +99,6 @@ async function main() {
   for (const s of shiftData) {
     await db.shiftTemplate.upsert({ where: { name: s.name }, update: {}, create: s });
   }
-  const graveyardShift = await db.shiftTemplate.findUnique({ where: { name: "Graveyard (8PM-6AM)" } });
 
   // ---------- Government contribution tables ----------
   await db.govContributionTable.upsert({
@@ -280,22 +281,20 @@ async function main() {
     });
   }
 
-  // ---------- Generate attendance: Aug 1 – Aug 27, 2026 ----------
-  const startDate = new Date("2026-08-01T00:00:00");
-  const endDate = new Date("2026-08-27T00:00:00");
-  const totalDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+  // ---------- Generate attendance: Sep 7 – Sep 11, 2026 (last week, Mon–Fri) ----------
+  const morningShift = await db.shiftTemplate.findUnique({ where: { name: "Morning (8AM-5PM)" } });
+  const startDate = new Date("2026-09-07T00:00:00");
+  const endDate = new Date("2026-09-11T00:00:00");
 
-  console.log("Generating attendance data...");
+  console.log("Generating attendance data (Sep 7–11, Morning shift 8AM–5PM)...");
 
-  // Pre-generate workdays list
+  // 5 workdays: Sep 7 (Mon) – Sep 11 (Fri)
   const workdays: Date[] = [];
-  for (let d = 0; d <= totalDays; d++) {
-    const wd = addDays(startDate, d);
-    if (!isWeekend(wd)) workdays.push(wd);
+  for (let d = 0; d < 5; d++) {
+    workdays.push(addDays(startDate, d));
   }
-  console.log(`  ${workdays.length} workdays to generate for ${createdEmployees.length} employees`);
+  console.log(`  ${workdays.length} workdays × ${createdEmployees.length} employees`);
 
-  // Batch insert time logs and attendance daily
   const timeLogBatch: Array<{
     employeeId: string; type: "IN" | "OUT"; timestamp: Date; workDate: Date; source: string;
   }> = [];
@@ -305,53 +304,61 @@ async function main() {
     nightDiffMinutes: number; status: AttendanceStatus;
   }> = [];
 
+  // Pre-assign: EMP0005 (Jose Reyes) is absent Sep 10 (Thu), EMP0011 (Angelo Cruz) is late on Sep 9 (Wed)
+  const absentEmp = createdEmployees.find((e) => e.employeeNumber === "EMP0005");
+  const lateEmp = createdEmployees.find((e) => e.employeeNumber === "EMP0011");
+
   for (const emp of createdEmployees) {
-    for (const workDate of workdays) {
-      const isPresent = Math.random() > 0.08; // 92% attendance
+    for (let i = 0; i < workdays.length; i++) {
+      const workDate = workdays[i];
 
-      if (isPresent) {
-        const isLate = Math.random() < 0.12;
-        const arrivalMinutes = isLate ? randomMinutes(10, 40) : randomMinutes(-5, 5);
-        const actualIn = new Date(workDate);
-        actualIn.setHours(20, arrivalMinutes > 0 ? arrivalMinutes : 0, 0, 0);
-
-        const departMinutes = randomMinutes(-5, 10);
-        const actualOut = addDays(workDate, 1);
-        actualOut.setHours(6, departMinutes > 0 ? departMinutes : 0, 0, 0);
-
-        const lateMinutes = isLate ? arrivalMinutes : 0;
-        const workedMinutes = Math.round((actualOut.getTime() - actualIn.getTime()) / 60000);
-        const nightDiffMinutes = Math.max(0, workedMinutes - 60);
-
-        timeLogBatch.push({ employeeId: emp.id, type: "IN", timestamp: actualIn, workDate, source: "WEB" });
-        timeLogBatch.push({ employeeId: emp.id, type: "OUT", timestamp: actualOut, workDate, source: "WEB" });
-
+      // Jose Reyes absent on Thursday (Sep 10)
+      if (absentEmp && emp.id === absentEmp.id && i === 3) {
         attendanceBatch.push({
-          employeeId: emp.id, workDate, scheduledStart: "20:00", scheduledEnd: "06:00",
-          actualIn, actualOut, lateMinutes, workedMinutes, nightDiffMinutes,
-          status: isLate ? AttendanceStatus.LATE : AttendanceStatus.PRESENT,
-        });
-      } else {
-        attendanceBatch.push({
-          employeeId: emp.id, workDate, scheduledStart: "20:00", scheduledEnd: "06:00",
+          employeeId: emp.id, workDate, scheduledStart: "08:00", scheduledEnd: "17:00",
           lateMinutes: 0, workedMinutes: 0, nightDiffMinutes: 0, status: AttendanceStatus.ABSENT,
         });
+        continue;
       }
+
+      // Angelo Cruz late on Wednesday (Sep 9)
+      const isLate = lateEmp && emp.id === lateEmp.id && i === 2;
+      const arrivalMinutes = isLate ? 18 : randomMinutes(-3, 3);
+      const lateMinutes = isLate ? 18 : 0;
+
+      // Clock in ~8:00 AM, clock out ~5:00 PM (8AM–5PM with 1hr unpaid break = 8hrs worked)
+      const actualIn = new Date(workDate);
+      actualIn.setHours(8, Math.max(0, arrivalMinutes), 0, 0);
+
+      const departMinutes = randomMinutes(-5, 10);
+      const actualOut = new Date(workDate);
+      actualOut.setHours(17, departMinutes > 0 ? departMinutes : 0, 0, 0);
+
+      const workedMinutes = Math.round((actualOut.getTime() - actualIn.getTime()) / 60000) - 60; // minus 1hr lunch
+      const nightDiffMinutes = 0; // morning shift, no ND
+
+      timeLogBatch.push({ employeeId: emp.id, type: "IN", timestamp: actualIn, workDate, source: "BUNDY" });
+      timeLogBatch.push({ employeeId: emp.id, type: "OUT", timestamp: actualOut, workDate, source: "BUNDY" });
+
+      attendanceBatch.push({
+        employeeId: emp.id, workDate, scheduledStart: "08:00", scheduledEnd: "17:00",
+        actualIn, actualOut, lateMinutes, workedMinutes, nightDiffMinutes,
+        status: isLate ? AttendanceStatus.LATE : AttendanceStatus.PRESENT,
+      });
     }
   }
 
-  // Insert in chunks of 500
   const chunk = 500;
   for (let i = 0; i < timeLogBatch.length; i += chunk) {
     await db.timeLog.createMany({ data: timeLogBatch.slice(i, i + chunk) });
-    console.log(`  TimeLogs: ${Math.min(i + chunk, timeLogBatch.length)}/${timeLogBatch.length}`);
   }
+  console.log(`  TimeLogs: ${timeLogBatch.length}`);
   for (let i = 0; i < attendanceBatch.length; i += chunk) {
     await db.attendanceDaily.createMany({ data: attendanceBatch.slice(i, i + chunk) });
-    console.log(`  Attendance: ${Math.min(i + chunk, attendanceBatch.length)}/${attendanceBatch.length}`);
   }
+  console.log(`  Attendance: ${attendanceBatch.length}`);
 
-  // ---------- Shift assignments (batch) ----------
+  // ---------- Shift assignments (all on morning shift) ----------
   console.log("Creating shift assignments...");
   const shiftBatch: Array<{
     employeeId: string; shiftTemplateId: string; date: Date; customStart: string; customEnd: string;
@@ -360,89 +367,35 @@ async function main() {
     for (const wd of workdays) {
       shiftBatch.push({
         employeeId: emp.id,
-        shiftTemplateId: graveyardShift!.id,
+        shiftTemplateId: morningShift!.id,
         date: wd,
-        customStart: "20:00",
-        customEnd: "06:00",
+        customStart: "08:00",
+        customEnd: "17:00",
       });
     }
   }
   for (let i = 0; i < shiftBatch.length; i += chunk) {
     await db.shiftAssignment.createMany({ data: shiftBatch.slice(i, i + chunk) });
-    console.log(`  Shifts: ${Math.min(i + chunk, shiftBatch.length)}/${shiftBatch.length}`);
   }
+  console.log(`  Shifts: ${shiftBatch.length}`);
 
-  // ---------- Weekly Pay Periods & Payslips ----------
-  console.log("Creating pay periods and payslips...");
-  const payWeeks = [
-    { start: "2026-08-01", end: "2026-08-07", payDate: "2026-08-10" },
-    { start: "2026-08-08", end: "2026-08-14", payDate: "2026-08-17" },
-    { start: "2026-08-15", end: "2026-08-21", payDate: "2026-08-24" },
-    { start: "2026-08-22", end: "2026-08-28", payDate: "2026-08-31" },
-  ];
+  // ---------- Single Pay Period (Sep 7–11, pay date Sep 14) ----------
+  console.log("Creating pay period (Sep 7–11, pay date Sep 14)...");
+  const period = await db.payPeriod.create({
+    data: {
+      frequency: "WEEKLY",
+      startDate,
+      endDate,
+      payDate: new Date("2026-09-14T00:00:00"),
+      status: "DRAFT",
+    },
+  });
+  console.log(`  Pay period: ${period.id}`);
 
-  const payslipBatch: Array<{
-    payPeriodId: string; employeeId: string; monthlyRate: number; dailyRate: number; hourlyRate: number;
-    daysWorked: number; basicPay: number; nightDiffPay: number; overtimePay: number; holidayPay: number;
-    grossPay: number; lateAbsenceDeduction: number; sssContribution: number; philhealthContribution: number;
-    pagibigContribution: number; withholdingTax: number; totalDeductions: number; netPay: number;
-    thirteenthMonthYTD: number;
-  }> = [];
-
-  for (const week of payWeeks) {
-    const period = await db.payPeriod.create({
-      data: {
-        frequency: "WEEKLY",
-        startDate: new Date(`${week.start}T00:00:00`),
-        endDate: new Date(`${week.end}T00:00:00`),
-        payDate: new Date(`${week.payDate}T00:00:00`),
-        status: new Date(week.payDate) <= endDate ? "PAID" : "DRAFT",
-      },
-    });
-
-    for (const emp of createdEmployees) {
-      const monthRate = emp.basicSalary;
-      const dailyRate = Math.round((monthRate * 12) / 313 * 100) / 100;
-      const hourlyRate = Math.round((dailyRate / 8) * 100) / 100;
-
-      const recs = attendanceBatch.filter(
-        (a) =>
-          a.employeeId === emp.id &&
-          a.workDate >= new Date(`${week.start}T00:00:00`) &&
-          a.workDate <= new Date(`${week.end}T23:59:59`)
-      );
-
-      const daysWorked = recs.filter((a) => a.status === "PRESENT" || a.status === "LATE").length;
-      const totalLate = recs.reduce((s, a) => s + a.lateMinutes, 0);
-      const totalNightDiff = recs.reduce((s, a) => s + a.nightDiffMinutes, 0);
-
-      const basicPay = Math.round(daysWorked * dailyRate * 100) / 100;
-      const nightDiffPay = Math.round((totalNightDiff / 60) * hourlyRate * 0.10 * 100) / 100;
-      const lateDeduction = Math.round((totalLate / 60) * hourlyRate * 100) / 100;
-      const grossPay = Math.round((basicPay + nightDiffPay - lateDeduction) * 100) / 100;
-
-      const sss = Math.round((monthRate * 0.05) / 4 * 100) / 100;
-      const philhealth = Math.round((monthRate * 0.0225) / 4 * 100) / 100;
-      const pagibig = Math.min(25, Math.round((monthRate * 0.02) / 4 * 100) / 100);
-      const weeklyTaxableThreshold = 20833 / 4;
-      const tax = grossPay > weeklyTaxableThreshold ? Math.round((grossPay - weeklyTaxableThreshold) * 0.15 * 100) / 100 : 0;
-      const totalDeductions = Math.round((sss + philhealth + pagibig + tax) * 100) / 100;
-      const netPay = Math.round((grossPay - totalDeductions) * 100) / 100;
-
-      payslipBatch.push({
-        payPeriodId: period.id, employeeId: emp.id, monthlyRate: monthRate, dailyRate, hourlyRate,
-        daysWorked, basicPay, nightDiffPay, overtimePay: 0, holidayPay: 0,
-        grossPay, lateAbsenceDeduction: lateDeduction, sssContribution: sss,
-        philhealthContribution: philhealth, pagibigContribution: pagibig,
-        withholdingTax: tax, totalDeductions, netPay, thirteenthMonthYTD: 0,
-      });
-    }
-  }
-
-  for (let i = 0; i < payslipBatch.length; i += chunk) {
-    await db.payslip.createMany({ data: payslipBatch.slice(i, i + chunk) });
-    console.log(`  Payslips: ${Math.min(i + chunk, payslipBatch.length)}/${payslipBatch.length}`);
-  }
+  // ---------- Summary ----------
+  const presentCount = attendanceBatch.filter((a) => a.status !== "ABSENT").length;
+  const lateCount = attendanceBatch.filter((a) => a.status === "LATE").length;
+  const absentCount = attendanceBatch.filter((a) => a.status === "ABSENT").length;
 
   console.log("\n✅ Seed complete!");
   console.log("─────────────────────────────────────────");
@@ -452,12 +405,10 @@ async function main() {
   console.log("  HR:      hr@company.com        / Hr@123456");
   console.log("  Payroll: payroll@company.com   / Payroll@12345");
   console.log("─────────────────────────────────────────");
-  console.log(`Employees: ${createdEmployees.length} (Graveyard 8PM-6AM)`);
-  console.log(`Workdays: ${workdays.length} (Aug 1 – Aug 27, Mon-Fri)`);
-  console.log(`TimeLogs: ${timeLogBatch.length}`);
-  console.log(`Attendance: ${attendanceBatch.length}`);
-  console.log(`Shifts: ${shiftBatch.length}`);
-  console.log(`Pay periods: 4 weeks | Payslips: ${payslipBatch.length}`);
+  console.log(`Employees: ${createdEmployees.length} (Morning shift 8AM–5PM)`);
+  console.log(`Week: Sep 7–11, 2026 (Mon–Fri)`);
+  console.log(`Present: ${presentCount} | Late: ${lateCount} | Absent: ${absentCount}`);
+  console.log(`Pay period: DRAFT — ready to process via Payroll > Process Group`);
   console.log("─────────────────────────────────────────");
 }
 
