@@ -7,6 +7,7 @@ import MessageBubble from "./message-bubble";
 import TypingIndicator from "./typing-indicator";
 import { getMessages, deleteMessage, sendMessage } from "@/lib/actions/chat";
 import { getSocket } from "@/lib/socket";
+import type { Role } from "@prisma/client";
 
 type Message = Awaited<ReturnType<typeof getMessages>>[number];
 
@@ -27,6 +28,7 @@ type ConversationParticipant = {
 type Props = {
   conversationId: string;
   currentUserId: string;
+  userRole: Role;
   participants: ConversationParticipant[];
   isGroup: boolean;
   conversationName: string | null;
@@ -38,6 +40,7 @@ type Props = {
 export default function MessageArea({
   conversationId,
   currentUserId,
+  userRole,
   participants,
   isGroup,
   conversationName,
@@ -64,6 +67,7 @@ export default function MessageArea({
     : "Unknown";
 
   const isOnline = other ? onlineUsers.includes(other.userId) : false;
+  const canUseTemplates = ["ADMIN", "SUPER_ADMIN", "HR"].includes(userRole);
 
   // Load messages
   useEffect(() => {
@@ -259,7 +263,7 @@ export default function MessageArea({
         <div className="min-w-0 flex-1">
           <h3 className="truncate text-sm font-bold text-foreground">{displayName}</h3>
           <p className="text-xs text-muted">
-            {isOnline ? "Online" : isGroup ? `${participants.length} members` : "Offline"}
+            {isOnline ? "Online" : isGroup ? `${participants.length} members` : ""}
           </p>
         </div>
       </div>
@@ -285,22 +289,24 @@ export default function MessageArea({
             </p>
           </div>
         ) : (
-          <div className="space-y-3">
-            {messages.map((msg, i) => {
-              const isOwn = msg.senderId === currentUserId;
-              const prevMsg = i > 0 ? messages[i - 1] : null;
-              const showSender = !prevMsg || prevMsg.senderId !== msg.senderId;
-              return (
-                <MessageBubble
-                  key={msg.id}
-                  message={msg}
-                  isOwn={isOwn}
-                  showSender={showSender}
-                  onDelete={isOwn ? () => handleDelete(msg.id) : undefined}
-                />
-              );
-            })}
-            <div ref={messagesEndRef} />
+          <div className="flex flex-1 flex-col justify-end">
+            <div className="space-y-3">
+              {messages.map((msg, i) => {
+                const isOwn = msg.senderId === currentUserId;
+                const prevMsg = i > 0 ? messages[i - 1] : null;
+                const showSender = !prevMsg || prevMsg.senderId !== msg.senderId;
+                return (
+                  <MessageBubble
+                    key={msg.id}
+                    message={msg}
+                    isOwn={isOwn}
+                    showSender={showSender}
+                    onDelete={isOwn ? () => handleDelete(msg.id) : undefined}
+                  />
+                );
+              })}
+              <div ref={messagesEndRef} />
+            </div>
           </div>
         )}
       </div>
@@ -311,7 +317,7 @@ export default function MessageArea({
       {/* Input */}
       <div className="border-t border-border bg-white px-4 py-3">
         {/* Template Picker Dropdown */}
-        {showTemplates && (
+        {canUseTemplates && showTemplates && (
           <div className="mb-2 rounded-lg border border-border bg-white shadow-lg">
             <p className="px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-muted-light">
               HR Templates
@@ -341,16 +347,18 @@ export default function MessageArea({
         )}
 
         <div className="flex items-end gap-2">
-          <button
-            onClick={() => setShowTemplates(!showTemplates)}
-            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-all ${
-              showTemplates
-                ? "bg-primary/10 text-primary"
-                : "text-muted hover:bg-surface-hover hover:text-foreground"
-            }`}
-          >
-            <FileText className="h-4 w-4" />
-          </button>
+          {canUseTemplates && (
+            <button
+              onClick={() => setShowTemplates(!showTemplates)}
+              className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-all ${
+                showTemplates
+                  ? "bg-primary/10 text-primary"
+                  : "text-muted hover:bg-surface-hover hover:text-foreground"
+              }`}
+            >
+              <FileText className="h-4 w-4" />
+            </button>
+          )}
           <textarea
             ref={inputRef}
             value={input}

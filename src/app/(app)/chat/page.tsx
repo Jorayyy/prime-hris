@@ -10,7 +10,7 @@ export default async function ChatPage() {
 
   return (
     <div className="h-[calc(100vh-8rem)]">
-      <ChatLayout currentUserId={user.id} />
+      <ChatLayout currentUserId={user.id} userRole={user.role} />
     </div>
   );
 }

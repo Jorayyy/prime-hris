@@ -8,12 +8,14 @@ import UserSearch from "./user-search";
 import { getConversations, createConversation } from "@/lib/actions/chat";
 import { getSocket } from "@/lib/socket";
 import type { ConversationWithDetails } from "@/lib/actions/chat";
+import type { Role } from "@prisma/client";
 
 type Props = {
   currentUserId: string;
+  userRole: Role;
 };
 
-export default function ChatLayout({ currentUserId }: Props) {
+export default function ChatLayout({ currentUserId, userRole }: Props) {
   const searchParams = useSearchParams();
   const [conversations, setConversations] = useState<ConversationWithDetails[]>([]);
   const [activeConvId, setActiveConvId] = useState<string | null>(null);
@@ -135,6 +137,7 @@ export default function ChatLayout({ currentUserId }: Props) {
             key={activeConv.id}
             conversationId={activeConv.id}
             currentUserId={currentUserId}
+            userRole={userRole}
             participants={activeConv.participants}
             isGroup={activeConv.isGroup}
             conversationName={activeConv.name}
