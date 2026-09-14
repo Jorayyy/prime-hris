@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
-import { requireRole, ForbiddenError } from "@/lib/auth";
+import { requireRole, requireUser, verifyPassword, ForbiddenError } from "@/lib/auth";
 import { recordAudit } from "@/lib/actions/audit";
 import {
   computePayslip,
@@ -974,11 +974,22 @@ export async function archivePayPeriodAction(periodId: string) {
   return { ok: true };
 }
 
-export async function deletePayPeriodAction(periodId: string) {
+export async function deletePayPeriodAction(_prev: { error?: string }, formData: FormData): Promise<{ error?: string }> {
   const user = await requireRole("ADMIN", "PAYROLL");
+  const periodId = String(formData.get("periodId") ?? "");
+  const password = String(formData.get("password") ?? "");
+
   const period = await db.payPeriod.findUnique({ where: { id: periodId } });
   if (!period) return { error: "Pay period not found" };
-  if (!["DRAFT", "PROCESSING", "FOR_APPROVAL"].includes(period.status)) return { error: "Only unapproved periods can be deleted" };
+
+  const needsPassword = ["APPROVED", "PAID", "LOCKED"].includes(period.status);
+  if (needsPassword) {
+    if (!password) return { error: "Password is required to delete paid periods" };
+    const fullUser = await db.user.findUnique({ where: { id: user.id } });
+    if (!fullUser || !(await verifyPassword(password, fullUser.passwordHash))) {
+      return { error: "Incorrect password" };
+    }
+  }
 
   await db.$transaction([
     db.payslipAdjustment.deleteMany({ where: { payslip: { payPeriodId: periodId } } }),
@@ -990,7 +1001,7 @@ export async function deletePayPeriodAction(periodId: string) {
 
   await recordAudit({ action: "DELETE_PAYROLL", entity: "PayPeriod", entityId: periodId });
   revalidatePath("/payroll");
-  return { ok: true };
+  return {};
 }
 
 export async function unarchivePayPeriodAction(periodId: string) {

@@ -135,9 +135,7 @@ export default async function PayrollPage() {
                             <Eye className="h-3.5 w-3.5" /> View
                           </Link>
                         )}
-                        {["DRAFT", "PROCESSING", "FOR_APPROVAL"].includes(p.status) && (
-                          <DeletePeriodButton periodId={p.id} />
-                        )}
+                        <DeletePeriodButton periodId={p.id} status={p.status} />
                         {["DRAFT", "FOR_APPROVAL"].includes(p.status) && (
                           <ArchiveButton periodId={p.id} />
                         )}
