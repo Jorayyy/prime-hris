@@ -155,7 +155,7 @@ export async function createEmployeeAction(_prev: EmployeeFormState, formData: F
   redirect(`/employees/${employee.id}`);
 }
 
-const updateSchema = employeeSchema.partial().extend({ id: z.string() });
+const updateSchema = employeeSchema.partial().extend({ id: z.string(), bundyPin: z.string().regex(/^\d{4,8}$/, "PIN must be 4-8 digits").optional().or(z.literal("")) });
 
 export async function updateEmployeeAction(_prev: EmployeeFormState, formData: FormData): Promise<EmployeeFormState> {
   try {
