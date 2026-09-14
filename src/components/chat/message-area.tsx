@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Send, ArrowLeft, Trash2, AlertCircle } from "lucide-react";
+import { Send, ArrowLeft, AlertCircle, FileText } from "lucide-react";
 import { Avatar } from "@/components/ui";
 import MessageBubble from "./message-bubble";
 import TypingIndicator from "./typing-indicator";
@@ -55,6 +55,7 @@ export default function MessageArea({
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isTypingRef = useRef(false);
+  const [showTemplates, setShowTemplates] = useState(false);
 
   const other = participants.find((p) => p.userId !== currentUserId);
   const displayName = isGroup
@@ -316,7 +317,47 @@ export default function MessageArea({
 
       {/* Input */}
       <div className="border-t border-border bg-white px-4 py-3">
+        {/* Template Picker Dropdown */}
+        {showTemplates && (
+          <div className="mb-2 rounded-lg border border-border bg-white shadow-lg">
+            <p className="px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-muted-light">
+              HR Templates
+            </p>
+            {[
+              { label: "Leave Approved", text: "✅ Your leave request has been approved. Please check your leave credits for details." },
+              { label: "Leave Rejected", text: "❌ Your leave request has been rejected. Please contact HR for more information." },
+              { label: "Payroll Notice", text: "💰 Your payslip for this period is now available. Please review it in the Payroll section." },
+              { label: "Schedule Change", text: "📅 Your schedule has been updated. Please check the Schedules page for your new shift." },
+              { label: "Document Reminder", text: "📋 Please submit the required documents to complete your file. Check your employee profile for details." },
+              { label: "Onboarding Reminder", text: "👋 Welcome! Please complete the onboarding checklist in your employee profile." },
+            ].map((tpl) => (
+              <button
+                key={tpl.label}
+                onClick={() => {
+                  setInput(tpl.text);
+                  setShowTemplates(false);
+                  inputRef.current?.focus();
+                }}
+                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-foreground hover:bg-surface-hover transition-colors"
+              >
+                <FileText className="h-3.5 w-3.5 text-muted" />
+                {tpl.label}
+              </button>
+            ))}
+          </div>
+        )}
+
         <div className="flex items-end gap-2">
+          <button
+            onClick={() => setShowTemplates(!showTemplates)}
+            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-all ${
+              showTemplates
+                ? "bg-primary/10 text-primary"
+                : "text-muted hover:bg-surface-hover hover:text-foreground"
+            }`}
+          >
+            <FileText className="h-4 w-4" />
+          </button>
           <textarea
             ref={inputRef}
             value={input}

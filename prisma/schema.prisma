@@ -135,6 +135,16 @@ enum GovIdType {
   WITHHOLDING_TAX
 }
 
+enum ConversationCategory {
+  GENERAL
+  LEAVE
+  PAYROLL
+  SCHEDULE
+  ONBOARDING
+  SEPARATION
+  OTHER
+}
+
 // ==============================
 // AUTH & SESSIONS
 // ==============================
@@ -714,6 +724,7 @@ model Conversation {
   id        String   @id @default(cuid())
   name      String?  // for group chats
   isGroup   Boolean  @default(false)
+  category  ConversationCategory @default(GENERAL)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -721,6 +732,7 @@ model Conversation {
   messages     ChatMessage[]
 
   @@index([updatedAt])
+  @@index([category])
 }
 
 model ChatParticipant {

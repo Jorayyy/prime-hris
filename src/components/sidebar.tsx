@@ -18,6 +18,7 @@ import {
   ChevronRight,
   Search,
   MessageSquare,
+  Inbox,
 } from "lucide-react";
 import { cx, Badge } from "@/components/ui";
 import type { Role } from "@prisma/client";
@@ -30,39 +31,40 @@ type NavItem = {
   badge?: number;
 };
 
-const NAV: Array<{ section: string; items: NavItem[] }> = [
-  {
-    section: "Overview",
-    items: [
-      { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-      { href: "/me", label: "My Space", icon: UserRound },
-      { href: "/chat", label: "Messages", icon: MessageSquare },
-    ],
-  },
-  {
-    section: "People",
-    items: [
-      { href: "/employees", label: "Employees", icon: Users, roles: ["SUPER_ADMIN", "ADMIN", "HR", "MANAGER"] },
-      { href: "/attendance", label: "Time & Attendance", icon: CalendarClock, roles: ["SUPER_ADMIN", "ADMIN", "HR", "PAYROLL", "MANAGER"] },
-      { href: "/schedules", label: "Schedules", icon: CalendarDays, roles: ["SUPER_ADMIN", "ADMIN", "HR"] },
-      { href: "/leaves", label: "Leave Management", icon: CalendarDays },
-    ],
-  },
-  {
-    section: "Operations",
-    items: [
-      { href: "/payroll", label: "Payroll", icon: Wallet, roles: ["SUPER_ADMIN", "ADMIN", "PAYROLL"] },
-      { href: "/settings", label: "Settings", icon: Settings, roles: ["SUPER_ADMIN", "ADMIN", "HR"] },
-      { href: "/users", label: "User Accounts", icon: UserCog, roles: ["SUPER_ADMIN"] },
-      { href: "/audit", label: "Audit Log", icon: ScrollText, roles: ["SUPER_ADMIN", "ADMIN"] },
-    ],
-  },
-];
-
-export default function Sidebar({ role, company, logoUrl }: { role: Role; company: string; logoUrl?: string | null }) {
+export default function Sidebar({ role, company, logoUrl, unreadMessages }: { role: Role; company: string; logoUrl?: string | null; unreadMessages?: number }) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
+
+  const NAV: Array<{ section: string; items: NavItem[] }> = [
+    {
+      section: "Overview",
+      items: [
+        { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+        { href: "/me", label: "My Space", icon: UserRound },
+        { href: "/chat", label: "Messages", icon: MessageSquare, badge: unreadMessages },
+      ],
+    },
+    {
+      section: "People",
+      items: [
+        { href: "/employees", label: "Employees", icon: Users, roles: ["SUPER_ADMIN", "ADMIN", "HR", "MANAGER"] },
+        { href: "/attendance", label: "Time & Attendance", icon: CalendarClock, roles: ["SUPER_ADMIN", "ADMIN", "HR", "PAYROLL", "MANAGER"] },
+        { href: "/schedules", label: "Schedules", icon: CalendarDays, roles: ["SUPER_ADMIN", "ADMIN", "HR"] },
+        { href: "/leaves", label: "Leave Management", icon: CalendarDays },
+        { href: "/hr-inbox", label: "HR Inbox", icon: Inbox, roles: ["SUPER_ADMIN", "ADMIN", "HR"] },
+      ],
+    },
+    {
+      section: "Operations",
+      items: [
+        { href: "/payroll", label: "Payroll", icon: Wallet, roles: ["SUPER_ADMIN", "ADMIN", "PAYROLL"] },
+        { href: "/settings", label: "Settings", icon: Settings, roles: ["SUPER_ADMIN", "ADMIN", "HR"] },
+        { href: "/users", label: "User Accounts", icon: UserCog, roles: ["SUPER_ADMIN"] },
+        { href: "/audit", label: "Audit Log", icon: ScrollText, roles: ["SUPER_ADMIN", "ADMIN"] },
+      ],
+    },
+  ];
 
   return (
     <motion.aside

@@ -2,6 +2,7 @@
 
 import { requireUser, requireRole } from "@/lib/auth";
 import { db } from "@/lib/db";
+import type { ConversationCategory } from "@prisma/client";
 
 export type ChatUser = {
   id: string;
@@ -16,6 +17,7 @@ export type ConversationWithDetails = {
   id: string;
   name: string | null;
   isGroup: boolean;
+  category: string;
   createdAt: Date;
   updatedAt: Date;
   participants: {
@@ -342,6 +344,92 @@ export async function markAsRead(conversationId: string) {
   await db.chatParticipant.updateMany({
     where: { conversationId, userId: user.id },
     data: { lastReadAt: new Date() },
+  });
+
+  return { ok: true };
+}
+
+export type SearchResult = {
+  id: string;
+  conversationId: string;
+  content: string;
+  createdAt: Date;
+  sender: ChatUser;
+  conversation: {
+    id: string;
+    name: string | null;
+    isGroup: boolean;
+  };
+};
+
+export async function searchMessages(query: string): Promise<SearchResult[]> {
+  const user = await requireUser();
+  if (!query || query.length < 2) return [];
+
+  const messages = await db.chatMessage.findMany({
+    where: {
+      content: { contains: query, mode: "insensitive" },
+      conversation: {
+        participants: { some: { userId: user.id } },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+    take: 20,
+    include: {
+      sender: {
+        select: {
+          id: true,
+          email: true,
+          employee: {
+            select: {
+              firstName: true,
+              lastName: true,
+              photoUrl: true,
+              employeeNumber: true,
+            },
+          },
+        },
+      },
+      conversation: {
+        select: {
+          id: true,
+          name: true,
+          isGroup: true,
+        },
+      },
+    },
+  });
+
+  return messages.map((m) => ({
+    id: m.id,
+    conversationId: m.conversationId,
+    content: m.content,
+    createdAt: m.createdAt,
+    sender: {
+      id: m.sender.id,
+      email: m.sender.email,
+      firstName: m.sender.employee?.firstName ?? null,
+      lastName: m.sender.employee?.lastName ?? null,
+      photoUrl: m.sender.employee?.photoUrl ?? null,
+      employeeNumber: m.sender.employee?.employeeNumber ?? null,
+    },
+    conversation: m.conversation,
+  }));
+}
+
+export async function updateConversationCategory(
+  conversationId: string,
+  category: string
+) {
+  const user = await requireUser();
+  const participant = await db.chatParticipant.findUnique({
+    where: { conversationId_userId: { conversationId, userId: user.id } },
+  });
+  if (!participant) throw new Error("Not a participant");
+
+  await db.conversation.update({
+    where: { id: conversationId },
+    data: { category: category as ConversationCategory },
   });
 
   return { ok: true };

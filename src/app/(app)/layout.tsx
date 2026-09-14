@@ -24,6 +24,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   let pendingLeaves: Array<{ id: string; createdAt: Date; employee: { firstName: string; lastName: string }; leaveType: { name: string } }> = [];
   let recentPayPeriod: { startDate: Date; endDate: Date } | null = null;
   let recentOvertime: Array<{ id: string; createdAt: Date; employee: { firstName: string; lastName: string }; requestedHours: any }> = [];
+  let unreadMessages = 0;
   try {
     [pendingLeaves, recentPayPeriod, recentOvertime] = await Promise.all([
       db.leaveRequest.findMany({
@@ -46,6 +47,22 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         include: { employee: { select: { firstName: true, lastName: true } } },
       }),
     ]);
+
+    // Count unread messages
+    const participations = await db.chatParticipant.findMany({
+      where: { userId: user.id },
+      select: { lastReadAt: true, conversationId: true },
+    });
+    for (const p of participations) {
+      const count = await db.chatMessage.count({
+        where: {
+          conversationId: p.conversationId,
+          senderId: { not: user.id },
+          createdAt: { gt: p.lastReadAt ?? new Date(0) },
+        },
+      });
+      unreadMessages += count;
+    }
   } catch {
     // DB may be cold-starting — render layout without notifications
   }
@@ -98,7 +115,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
-      <div className="no-print"><Sidebar role={user.role} company={company} logoUrl={settings?.logoUrl ?? null} /></div>
+      <div className="no-print"><Sidebar role={user.role} company={company} logoUrl={settings?.logoUrl ?? null} unreadMessages={unreadMessages} /></div>
       <div className="flex min-w-0 flex-1 flex-col">
         <div className="no-print">
           <Header

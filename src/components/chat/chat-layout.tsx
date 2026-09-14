@@ -1,11 +1,12 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import ConversationList from "./conversation-list";
 import MessageArea from "./message-area";
 import UserSearch from "./user-search";
 import { getConversations, createConversation } from "@/lib/actions/chat";
-import { getSocket, disconnectSocket } from "@/lib/socket";
+import { getSocket } from "@/lib/socket";
 import type { ConversationWithDetails } from "@/lib/actions/chat";
 
 type Props = {
@@ -13,25 +14,31 @@ type Props = {
 };
 
 export default function ChatLayout({ currentUserId }: Props) {
+  const searchParams = useSearchParams();
   const [conversations, setConversations] = useState<ConversationWithDetails[]>([]);
   const [activeConvId, setActiveConvId] = useState<string | null>(null);
   const [onlineUsers, setOnlineUsers] = useState<string[]>([]);
   const [showUserSearch, setShowUserSearch] = useState(false);
-  const [loading, setLoading] = useState(true);
 
   // Load conversations
   const loadConversations = useCallback(async () => {
     try {
       const convs = await getConversations();
       setConversations(convs);
-    } finally {
-      setLoading(false);
-    }
+    } catch {}
   }, []);
 
   useEffect(() => {
     loadConversations();
   }, [loadConversations]);
+
+  // Deep linking: auto-select conversation from ?conv= query param
+  useEffect(() => {
+    const convId = searchParams.get("conv");
+    if (convId && conversations.some((c) => c.id === convId)) {
+      setActiveConvId(convId);
+    }
+  }, [searchParams, conversations]);
 
   // Socket.io setup
   useEffect(() => {
@@ -41,8 +48,7 @@ export default function ChatLayout({ currentUserId }: Props) {
       setOnlineUsers(users);
     });
 
-    socket.on("new_message", (msg: any) => {
-      // Refresh conversation list to update last message & unread counts
+    socket.on("new_message", () => {
       loadConversations();
     });
 
@@ -85,7 +91,7 @@ export default function ChatLayout({ currentUserId }: Props) {
   );
 
   const handleNewMessage = useCallback(
-    (convId: string) => {
+    (_convId: string) => {
       loadConversations();
     },
     [loadConversations]
