@@ -1,8 +1,7 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { requireRole } from "@/lib/auth";
-import { HR_ROLES } from "@/lib/auth";
+import { requireRole, HR_ROLES } from "@/lib/auth";
 
 export type HrInboxItem = {
   id: string;
@@ -44,14 +43,14 @@ export async function getHrInbox(): Promise<HrInboxItem[]> {
         take: 20,
         include: {
           employee: { select: { id: true, firstName: true, lastName: true, employeeNumber: true } },
-          payPeriod: { select: { label: true } },
+          payPeriod: { select: { frequency: true, startDate: true, endDate: true } },
         },
       }),
       db.attendanceDaily.findMany({
         where: {
           status: { in: ["LATE", "INCOMPLETE", "ABSENT"] },
         },
-        orderBy: { date: "desc" },
+        orderBy: { workDate: "desc" },
         take: 20,
         include: {
           employee: { select: { id: true, firstName: true, lastName: true, employeeNumber: true } },
@@ -93,11 +92,14 @@ export async function getHrInbox(): Promise<HrInboxItem[]> {
 
   for (const exc of payrollExceptions) {
     const name = `${exc.employee.firstName ?? ""} ${exc.employee.lastName ?? ""}`.trim();
+    const periodLabel = exc.payPeriod
+      ? `${exc.payPeriod.frequency} · ${new Date(exc.payPeriod.startDate).toLocaleDateString("en-PH", { month: "short", day: "numeric" })}–${new Date(exc.payPeriod.endDate).toLocaleDateString("en-PH", { month: "short", day: "numeric" })}`
+      : "Unknown period";
     items.push({
       id: exc.id,
       type: "payroll_exception",
-      title: exc.type.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()),
-      subtitle: `${exc.severity} · ${exc.payPeriod?.label ?? "Unknown period"}`,
+      title: exc.type.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c: string) => c.toUpperCase()),
+      subtitle: `${exc.severity} · ${periodLabel}`,
       employeeName: name,
       employeeId: exc.employee.id,
       status: exc.resolved ? "RESOLVED" : "PENDING",
@@ -111,12 +113,12 @@ export async function getHrInbox(): Promise<HrInboxItem[]> {
     items.push({
       id: att.id,
       type: "attendance_exception",
-      title: `${att.status} · ${new Date(att.date).toLocaleDateString("en-PH", { month: "short", day: "numeric" })}`,
+      title: `${att.status} · ${new Date(att.workDate).toLocaleDateString("en-PH", { month: "short", day: "numeric" })}`,
       subtitle: `Scheduled ${att.scheduledStart ?? "?"}–${att.scheduledEnd ?? "?"}`,
       employeeName: name,
       employeeId: att.employee.id,
       status: att.status,
-      date: att.date,
+      date: att.workDate,
       link: "/attendance",
     });
   }
