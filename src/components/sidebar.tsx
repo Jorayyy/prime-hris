@@ -21,6 +21,7 @@ import {
   Inbox,
 } from "lucide-react";
 import { cx, Badge } from "@/components/ui";
+import UnreadBadge from "@/components/chat/unread-badge";
 import type { Role } from "@prisma/client";
 
 type NavItem = {
@@ -31,7 +32,7 @@ type NavItem = {
   badge?: number;
 };
 
-export default function Sidebar({ role, company, logoUrl, unreadMessages }: { role: Role; company: string; logoUrl?: string | null; unreadMessages?: number }) {
+export default function Sidebar({ role, company, logoUrl }: { role: Role; company: string; logoUrl?: string | null }) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
@@ -42,7 +43,7 @@ export default function Sidebar({ role, company, logoUrl, unreadMessages }: { ro
       items: [
         { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
         { href: "/me", label: "My Space", icon: UserRound },
-        { href: "/chat", label: "Messages", icon: MessageSquare, badge: unreadMessages },
+        { href: "/chat", label: "Messages", icon: MessageSquare },
       ],
     },
     {
@@ -195,7 +196,8 @@ export default function Sidebar({ role, company, logoUrl, unreadMessages }: { ro
                         </AnimatePresence>
 
                         {/* Badge */}
-                        {!collapsed && item.badge !== undefined && item.badge > 0 && (
+                        {!collapsed && item.href === "/chat" && <UnreadBadge />}
+                        {!collapsed && item.href !== "/chat" && item.badge !== undefined && item.badge > 0 && (
                           <Badge variant="red" size="sm">
                             {item.badge}
                           </Badge>
