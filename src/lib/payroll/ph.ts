@@ -309,9 +309,10 @@ export function computePayslip(input: PayslipInput): PayslipOutput {
   const grossPay = round2(taxableGross + nonTaxableAdditions);
 
   const govRates = input.govRates;
-  const sss = computeSss(input.monthlyRate, govRates?.sss).ee;
-  const philhealth = computePhilHealth(input.monthlyRate, govRates?.philhealth);
-  const pagibig = computePagIbig(input.monthlyRate, govRates?.pagibig);
+  const hasSalary = input.monthlyRate > 0;
+  const sss = hasSalary ? computeSss(input.monthlyRate, govRates?.sss).ee : 0;
+  const philhealth = hasSalary ? computePhilHealth(input.monthlyRate, govRates?.philhealth) : 0;
+  const pagibig = hasSalary ? computePagIbig(input.monthlyRate, govRates?.pagibig) : 0;
 
   const statutoryDeductions = round2(sss + philhealth + pagibig);
   const taxableIncome = round2(Math.max(0, taxableGross - statutoryDeductions));
@@ -319,7 +320,7 @@ export function computePayslip(input: PayslipInput): PayslipOutput {
 
   const otherDeductions = round2(input.deductions.reduce((s, d) => s + d.amount, 0));
   const totalDeductions = round2(statutoryDeductions + withholdingTax + otherDeductions);
-  const netPay = round2(grossPay - totalDeductions);
+  const netPay = round2(Math.max(0, grossPay - totalDeductions));
 
   const sssDetail = computeSss(input.monthlyRate, govRates?.sss);
   const philhealthDetail = computePhilHealth(input.monthlyRate, govRates?.philhealth);
