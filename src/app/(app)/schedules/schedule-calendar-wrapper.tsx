@@ -122,19 +122,28 @@ export default function ScheduleCalendarWrapper({
       {filteredEmployees.length > 0 && (
         <div className="mt-4">
           <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">Employee Quick View</p>
-          <div className="flex flex-wrap gap-2">
-            {filteredEmployees.slice(0, 20).map((e) => (
-              <button
-                key={e.id}
-                onClick={() => openEmployeeModal(e)}
-                className="rounded-lg border border-[var(--border)] bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
-              >
-                {e.lastName}, {e.firstName}
-              </button>
-            ))}
-            {filteredEmployees.length > 20 ? (
-              <span className="px-3 py-2 text-xs text-[var(--muted)]">+{filteredEmployees.length - 20} more</span>
-            ) : null}
+          <div className="relative max-w-xs">
+            <select
+              onChange={(e) => {
+                const emp = filteredEmployees.find((em) => em.id === e.target.value);
+                if (emp) openEmployeeModal(emp);
+                e.target.value = "";
+              }}
+              defaultValue=""
+              className="w-full rounded-lg border border-[var(--border)] bg-white px-3 py-2 text-xs font-medium text-slate-700 appearance-none pr-8 focus:outline-none focus:ring-2 focus:ring-[var(--brand)]/30 focus:border-[var(--brand)]"
+            >
+              <option value="" disabled>
+                Select employee to view schedule…
+              </option>
+              {filteredEmployees.map((e) => (
+                <option key={e.id} value={e.id}>
+                  {e.lastName}, {e.firstName} ({e.employeeNumber})
+                </option>
+              ))}
+            </select>
+            <svg className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
           </div>
         </div>
       )}
