@@ -1,11 +1,11 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Send, ArrowLeft, AlertCircle, FileText } from "lucide-react";
+import { Send, ArrowLeft, FileText } from "lucide-react";
 import { Avatar } from "@/components/ui";
 import MessageBubble from "./message-bubble";
 import TypingIndicator from "./typing-indicator";
-import { getMessages, deleteMessage } from "@/lib/actions/chat";
+import { getMessages, deleteMessage, sendMessage } from "@/lib/actions/chat";
 import { getSocket } from "@/lib/socket";
 
 type Message = Awaited<ReturnType<typeof getMessages>>[number];
@@ -49,7 +49,6 @@ export default function MessageArea({
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(true);
   const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
-  const [socketConnected, setSocketConnected] = useState(false);
   const [sending, setSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -81,17 +80,11 @@ export default function MessageArea({
     const socket = getSocket();
 
     socket.on("connect", () => {
-      setSocketConnected(true);
       socket.emit("join_conversation", conversationId);
       socket.emit("mark_read", conversationId);
     });
 
-    socket.on("disconnect", () => {
-      setSocketConnected(false);
-    });
-
     if (socket.connected) {
-      setSocketConnected(true);
       socket.emit("join_conversation", conversationId);
       socket.emit("mark_read", conversationId);
     }
@@ -199,18 +192,24 @@ export default function MessageArea({
         setSending(false);
         if (response?.error) {
           console.error("Failed to send:", response.error);
-          // Remove optimistic message on failure
           setMessages((prev) => prev.filter((m) => m.id !== tempId));
         } else if (response?.id) {
-          // Replace temp with real message
           setMessages((prev) =>
             prev.map((m) => (m.id === tempId ? { ...response, createdAt: new Date(response.createdAt) } : m))
           );
         }
       });
     } else {
-      // Socket not connected — message already shown optimistically
-      // It will sync when socket reconnects
+      // Socket down — fall back to server action
+      try {
+        const real = await sendMessage(conversationId, content);
+        setMessages((prev) =>
+          prev.map((m) => (m.id === tempId ? (real as any) : m))
+        );
+      } catch {
+        setMessages((prev) => prev.filter((m) => m.id !== tempId));
+        setInput(content);
+      }
       setSending(false);
     }
   }, [input, conversationId, currentUserId, sending]);
@@ -263,12 +262,6 @@ export default function MessageArea({
             {isOnline ? "Online" : isGroup ? `${participants.length} members` : "Offline"}
           </p>
         </div>
-        {!socketConnected && (
-          <div className="flex items-center gap-1 rounded-full bg-warning/10 px-2 py-1">
-            <AlertCircle className="h-3 w-3 text-warning" />
-            <span className="text-[10px] font-medium text-warning-dark">Reconnecting...</span>
-          </div>
-        )}
       </div>
 
       {/* Messages */}
