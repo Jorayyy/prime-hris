@@ -14,7 +14,7 @@ export default function HeadcountChart({ groups, title }: { groups: Group[]; tit
   return (
     <Card>
       <CardHeader title={title ?? "Headcount by Group"} subtitle={`${groups.reduce((s, g) => s + g.count, 0)} total`} />
-      <div className="p-4 space-y-3">
+      <div className="p-3 space-y-2">
         {groups.length === 0 ? (
           <p className="py-4 text-center text-sm text-muted">No data.</p>
         ) : (

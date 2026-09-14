@@ -16,11 +16,11 @@ export default function HoursTrendWidget({ weeks }: { weeks: WeekData[] }) {
   return (
     <Card>
       <CardHeader title="Hours Worked" subtitle="Last 4 weeks" />
-      <div className="p-4">
+      <div className="p-3">
         {weeks.every((w) => w.totalHours === 0) ? (
-          <p className="py-4 text-center text-sm text-muted">No hours data yet.</p>
+          <p className="py-2 text-center text-sm text-muted">No hours data yet.</p>
         ) : (
-          <div className="flex items-end gap-3 h-40">
+          <div className="flex items-end gap-3 h-32">
             {weeks.map((w, i) => {
               const height = maxHours > 0 ? (w.totalHours / maxHours) * 100 : 0;
               const otHeight = maxHours > 0 ? (w.overtimeHours / maxHours) * 100 : 0;

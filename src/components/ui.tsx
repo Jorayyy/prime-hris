@@ -169,7 +169,7 @@ export function CardHeader({
   return (
     <div
       className={cx(
-        "flex items-start justify-between gap-4 border-b px-5 py-4",
+        "flex items-start justify-between gap-4 border-b px-4 py-3",
         gradient ? "border-white/20" : "border-border"
       )}
     >

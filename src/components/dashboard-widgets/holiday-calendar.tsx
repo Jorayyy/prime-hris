@@ -25,7 +25,7 @@ export default function HolidayCalendarWidget({ holidays }: { holidays: Holiday[
   return (
     <Card>
       <CardHeader title="Holiday Calendar" subtitle={`${holidays.length} total declared`} />
-      <div className="p-4 space-y-4">
+      <div className="p-3 space-y-3">
         {upcoming.length === 0 && past.length === 0 ? (
           <p className="py-4 text-center text-sm text-muted">No holidays declared.</p>
         ) : (

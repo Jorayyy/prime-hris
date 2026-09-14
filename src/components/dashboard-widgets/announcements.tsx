@@ -48,7 +48,7 @@ export default function AnnouncementsWidget({ announcements, isAdmin }: { announ
           ) : null
         }
       />
-      <div className="p-4 space-y-3">
+      <div className="p-3 space-y-2">
         <AnimatePresence>
           {showForm && (
             <motion.form
@@ -80,7 +80,7 @@ export default function AnnouncementsWidget({ announcements, isAdmin }: { announ
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.05 }}
-              className="rounded-xl border border-border p-4 hover:shadow-sm transition-shadow"
+              className="rounded-xl border border-border p-3 hover:shadow-sm transition-shadow"
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="flex items-start gap-2">

@@ -25,7 +25,7 @@ export default function ApprovalsWidget({ approvals }: { approvals: Approval[] }
           </Link>
         }
       />
-      <div className="p-4 space-y-2">
+      <div className="p-3 space-y-2">
         {approvals.length === 0 ? (
           <p className="py-4 text-center text-sm text-muted">All caught up! No pending approvals.</p>
         ) : (

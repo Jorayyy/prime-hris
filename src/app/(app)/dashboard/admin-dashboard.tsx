@@ -80,7 +80,7 @@ export default function AdminDashboard({
   const today = new Date();
 
   return (
-    <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-3">
+    <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-2">
       {/* Welcome */}
       <motion.div variants={itemVariants}>
         <h1 className="text-2xl font-bold tracking-tight">
@@ -90,7 +90,7 @@ export default function AdminDashboard({
       </motion.div>
 
       {/* Stat Cards */}
-      <motion.div variants={itemVariants} className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <motion.div variants={itemVariants} className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           label="Total Employees"
           value={String(stats.totalEmployees)}
@@ -133,7 +133,7 @@ export default function AdminDashboard({
       </motion.div>
 
       {/* Main Grid: Attendance + Quick Actions + Approvals */}
-      <div className="grid gap-3 lg:grid-cols-3">
+      <div className="grid gap-2 lg:grid-cols-3">
         {/* Attendance Overview */}
         <motion.div variants={itemVariants} className="lg:col-span-1">
           <Card className="h-full">
@@ -146,8 +146,8 @@ export default function AdminDashboard({
                 </Badge>
               }
             />
-            <div className="p-6">
-              <div className="grid grid-cols-3 gap-3">
+            <div className="p-4">
+              <div className="grid grid-cols-3 gap-2">
                 <div className="rounded-xl bg-success/10 p-3 text-center">
                   <p className="text-2xl font-bold text-success">{stats.presentToday}</p>
                   <p className="text-[10px] font-semibold uppercase text-muted">Present</p>
@@ -215,7 +215,7 @@ export default function AdminDashboard({
       </div>
 
       {/* Second Row: Hours Trend + Headcount + Holidays */}
-      <div className="grid gap-3 lg:grid-cols-3">
+      <div className="grid gap-2 lg:grid-cols-3">
         <motion.div variants={itemVariants}>
           <HoursTrendWidget weeks={hoursTrend} />
         </motion.div>
@@ -228,7 +228,7 @@ export default function AdminDashboard({
       </div>
 
       {/* Third Row: Announcements + Birthdays + Doc Expiry */}
-      <div className="grid gap-3 lg:grid-cols-3">
+      <div className="grid gap-2 lg:grid-cols-3">
         <motion.div variants={itemVariants}>
           <AnnouncementsWidget announcements={announcements} isAdmin={isAdmin} />
         </motion.div>
@@ -255,7 +255,7 @@ export default function AdminDashboard({
             />
             <div className="divide-y divide-border">
               {recentLeaves.map((request, index) => (
-                <div key={index} className="flex items-center justify-between px-5 py-4 hover:bg-surface-hover transition-colors">
+                <div key={index} className="flex items-center justify-between px-5 py-3 hover:bg-surface-hover transition-colors">
                   <div className="flex items-center gap-4">
                     <Avatar name={request.name} size="md" />
                     <div>

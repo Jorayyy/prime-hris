@@ -21,7 +21,7 @@ export default function DocExpiryWidget({ documents }: { documents: DocExpiry[] 
           documents.length > 0 ? <Badge variant="red" size="sm">Action Needed</Badge> : <Badge variant="green" size="sm">All Clear</Badge>
         }
       />
-      <div className="p-4 space-y-2">
+      <div className="p-3 space-y-2">
         {documents.length === 0 ? (
           <p className="py-4 text-center text-sm text-muted">No documents expiring in the next 30 days.</p>
         ) : (

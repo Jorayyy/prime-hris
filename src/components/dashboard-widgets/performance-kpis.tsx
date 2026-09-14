@@ -22,7 +22,7 @@ export default function PerformanceKPIs({ kpis }: { kpis: KPIs }) {
   return (
     <Card>
       <CardHeader title="Performance KPIs" subtitle="This month" />
-      <div className="p-4 space-y-4">
+      <div className="p-3 space-y-2">
         {items.map((item, i) => {
           const isGood = item.invert ? item.value <= item.target : item.value >= item.target;
           return (

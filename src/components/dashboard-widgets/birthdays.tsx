@@ -46,7 +46,7 @@ export default function BirthdaysWidget({ employees }: { employees: Person[] }) 
   return (
     <Card>
       <CardHeader title="Celebrations" subtitle={new Date(today).toLocaleDateString("en-US", { month: "long", year: "numeric" })} />
-      <div className="p-4 space-y-4">
+      <div className="p-3 space-y-3">
         {birthdays.length === 0 && anniversaries.length === 0 ? (
           <p className="py-4 text-center text-sm text-muted">No celebrations this month.</p>
         ) : (
