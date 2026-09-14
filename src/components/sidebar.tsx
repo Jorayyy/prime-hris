@@ -200,11 +200,6 @@ export default function Sidebar({ role, company, logoUrl, unreadMessages }: { ro
                             {item.badge}
                           </Badge>
                         )}
-                        {!collapsed && item.badge === 0 && (
-                          <span className="rounded-full bg-warning/10 px-1.5 py-0.5 text-[9px] font-bold text-warning-dark">
-                            SOON
-                          </span>
-                        )}
 
                         {/* Tooltip when collapsed */}
                         {collapsed && isHovered && (
