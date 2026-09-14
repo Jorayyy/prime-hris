@@ -1,11 +1,10 @@
 "use client";
 
 import { useActionState } from "react";
-import { PlayCircle, CheckCircle2, Banknote, Lock, Unlock, Archive, Undo2 } from "lucide-react";
-import { processPayrollAction, approvePayrollAction, markPaidAction, lockPayPeriodAction, unlockPayPeriodAction, archivePayPeriodAction, unarchivePayPeriodAction } from "@/lib/actions/payroll";
+import { CheckCircle2, Banknote, Lock, Unlock, Archive, Undo2 } from "lucide-react";
+import { approvePayrollAction, markPaidAction, lockPayPeriodAction, unlockPayPeriodAction, archivePayPeriodAction, unarchivePayPeriodAction } from "@/lib/actions/payroll";
 
 export default function PeriodActions({ periodId, status, archived }: { periodId: string; status: string; archived?: boolean }) {
-  const [processState, processAction, processing] = useActionState(processPayrollAction, {} as { error?: string });
   const [approveState, approveAction, approving] = useActionState(approvePayrollAction, {} as { error?: string });
   const [paidState, paidAction, paying] = useActionState(markPaidAction, {} as { error?: string });
   const [lockState, lockAction, locking] = useActionState(lockPayPeriodAction.bind(null, periodId), {} as { error?: string });
@@ -13,7 +12,7 @@ export default function PeriodActions({ periodId, status, archived }: { periodId
   const [archiveState, archiveAction, archiving] = useActionState(archivePayPeriodAction.bind(null, periodId), {} as { error?: string });
   const [unarchiveState, unarchiveAction, unarchiving] = useActionState(unarchivePayPeriodAction.bind(null, periodId), {} as { error?: string });
 
-  const err = processState.error ?? approveState.error ?? paidState.error ?? lockState.error ?? unlockState.error ?? archiveState.error ?? unarchiveState.error;
+  const err = approveState.error ?? paidState.error ?? lockState.error ?? unlockState.error ?? archiveState.error ?? unarchiveState.error;
 
   if (archived) {
     return (
@@ -33,18 +32,6 @@ export default function PeriodActions({ periodId, status, archived }: { periodId
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      {["DRAFT", "PROCESSING"].includes(status) ? (
-        <form action={processAction} className="inline">
-          <input type="hidden" name="periodId" value={periodId} />
-          <button
-            disabled={processing}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--brand)] px-3 py-2 text-xs font-bold text-white hover:bg-[var(--brand-strong)] disabled:opacity-50"
-          >
-            <PlayCircle className="h-3.5 w-3.5" /> {processing ? "Processing…" : "Process Payroll"}
-          </button>
-        </form>
-      ) : null}
-
       {status === "FOR_APPROVAL" ? (
         <form action={approveAction} className="inline">
           <input type="hidden" name="periodId" value={periodId} />
