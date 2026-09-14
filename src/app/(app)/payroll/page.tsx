@@ -7,6 +7,7 @@ import { formatDate } from "@/lib/format";
 import NewPayPeriodForm from "./new-period-form";
 import ProcessGroupModal from "./process-group-modal";
 import ArchiveButton from "./archive-button";
+import DeletePeriodButton from "./delete-period-button";
 
 export const metadata = { title: "Payroll" };
 
@@ -133,6 +134,9 @@ export default async function PayrollPage() {
                           >
                             <Eye className="h-3.5 w-3.5" /> View
                           </Link>
+                        )}
+                        {["DRAFT", "PROCESSING", "FOR_APPROVAL"].includes(p.status) && (
+                          <DeletePeriodButton periodId={p.id} />
                         )}
                         {["DRAFT", "FOR_APPROVAL"].includes(p.status) && (
                           <ArchiveButton periodId={p.id} />

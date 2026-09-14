@@ -974,6 +974,25 @@ export async function archivePayPeriodAction(periodId: string) {
   return { ok: true };
 }
 
+export async function deletePayPeriodAction(periodId: string) {
+  const user = await requireRole("ADMIN", "PAYROLL");
+  const period = await db.payPeriod.findUnique({ where: { id: periodId } });
+  if (!period) return { error: "Pay period not found" };
+  if (!["DRAFT", "PROCESSING", "FOR_APPROVAL"].includes(period.status)) return { error: "Only unapproved periods can be deleted" };
+
+  await db.$transaction([
+    db.payslipAdjustment.deleteMany({ where: { payslip: { payPeriodId: periodId } } }),
+    db.payslip.deleteMany({ where: { payPeriodId: periodId } }),
+    db.payrollException.deleteMany({ where: { payPeriodId: periodId } }),
+    db.processedGroup.deleteMany({ where: { payPeriodId: periodId } }),
+    db.payPeriod.delete({ where: { id: periodId } }),
+  ]);
+
+  await recordAudit({ action: "DELETE_PAYROLL", entity: "PayPeriod", entityId: periodId });
+  revalidatePath("/payroll");
+  return { ok: true };
+}
+
 export async function unarchivePayPeriodAction(periodId: string) {
   const user = await requireRole("ADMIN", "PAYROLL");
   const period = await db.payPeriod.findUnique({ where: { id: periodId } });
