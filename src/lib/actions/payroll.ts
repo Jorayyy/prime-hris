@@ -402,11 +402,13 @@ export async function processGroupAction(_prev: { error?: string; ok?: boolean }
     throw new ForbiddenError();
   }
 
-  const parsed = processGroupSchema.safeParse({
-    periodId: String(formData.get("periodId") ?? ""),
-    groupId: String(formData.get("groupId") ?? ""),
-    siteId: String(formData.get("siteId") ?? ""),
-  });
+  const periodId = String(formData.get("periodId") ?? "").trim();
+  const groupId = String(formData.get("groupId") ?? "").trim();
+  const siteId = String(formData.get("siteId") ?? "").trim();
+
+  if (!periodId || !groupId || !siteId) return { error: "Site, group, and pay period are all required." };
+
+  const parsed = processGroupSchema.safeParse({ periodId, groupId, siteId });
   if (!parsed.success) return { error: "All fields are required." };
 
   const period = await db.payPeriod.findUnique({ where: { id: parsed.data.periodId } });

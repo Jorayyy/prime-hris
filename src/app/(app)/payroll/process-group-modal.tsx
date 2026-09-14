@@ -189,7 +189,7 @@ export default function ProcessGroupModal({
                       </button>
                     )}
                     <button
-                      disabled={pending || (showPreview ? false : false)}
+                      disabled={pending || !selectedSite || !selectedGroupId}
                       className="flex-1 rounded-lg bg-primary px-4 py-2.5 text-sm font-bold text-white hover:bg-primary-dark disabled:opacity-50 transition-colors"
                     >
                       {pending ? "Processing..." : "Process Now"}
