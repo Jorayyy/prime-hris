@@ -43,7 +43,6 @@ export default function Sidebar({ role, company, logoUrl }: { role: Role; compan
       items: [
         { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
         { href: "/me", label: "My Space", icon: UserRound },
-        { href: "/chat", label: "Messages", icon: MessageSquare },
       ],
     },
     {
@@ -53,7 +52,6 @@ export default function Sidebar({ role, company, logoUrl }: { role: Role; compan
         { href: "/attendance", label: "Time & Attendance", icon: CalendarClock, roles: ["SUPER_ADMIN", "ADMIN", "HR", "PAYROLL", "MANAGER"] },
         { href: "/schedules", label: "Schedules", icon: CalendarDays, roles: ["SUPER_ADMIN", "ADMIN", "HR"] },
         { href: "/leaves", label: "Leave Management", icon: CalendarDays },
-        { href: "/hr-inbox", label: "HR Inbox", icon: Inbox, roles: ["SUPER_ADMIN", "ADMIN", "HR"] },
       ],
     },
     {
