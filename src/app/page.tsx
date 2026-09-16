@@ -7,7 +7,7 @@ import BundyWidget from "@/components/bundy-widget";
 export const dynamic = "force-dynamic";
 
 export default async function LandingPage() {
-  let settings: { name?: string | null } | null = null;
+  let settings: { name?: string | null; logoUrl?: string | null; tagline?: string | null } | null = null;
   let user: Awaited<ReturnType<typeof getSessionUser>> = null;
   try {
     [settings, user] = await Promise.all([db.companySettings.findFirst(), getSessionUser()]);
@@ -15,15 +15,21 @@ export default async function LandingPage() {
     // DB cold-start or missing DATABASE_URL at runtime — render with defaults
   }
   const company = settings?.name ?? "HRIS";
+  const logoUrl = settings?.logoUrl ?? null;
+  const tagline = settings?.tagline ?? null;
 
   return (
     <main className="flex min-h-screen flex-col">
       <header className="border-b border-slate-200 bg-white/80 backdrop-blur">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
           <div className="flex items-center gap-2 font-bold tracking-tight text-slate-900">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--brand)] text-sm text-white">
-              HR
-            </span>
+            {logoUrl ? (
+              <img src={logoUrl} alt={company} className="h-8 w-8 rounded-lg object-contain" />
+            ) : (
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--brand)] text-sm text-white">
+                HR
+              </span>
+            )}
             {company}
           </div>
           {user ? (
@@ -39,21 +45,33 @@ export default async function LandingPage() {
 
       <section className="mx-auto grid w-full max-w-6xl flex-1 items-center gap-12 px-6 py-14 lg:grid-cols-2">
         <div>
+          <div className="mb-6 flex items-center gap-3">
+            {logoUrl ? (
+              <img src={logoUrl} alt={company} className="h-12 w-12 rounded-xl object-contain shadow-sm" />
+            ) : (
+              <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--brand)] text-lg font-bold text-white shadow-sm">
+                HR
+              </span>
+            )}
+            <div>
+              <h2 className="text-lg font-bold text-slate-900">{company}</h2>
+              {tagline && <p className="text-xs text-slate-500">{tagline}</p>}
+            </div>
+          </div>
+
           <p className="mb-3 inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
             <Clock className="h-3.5 w-3.5" /> Human Resources Information System
           </p>
           <h1 className="text-4xl font-extrabold leading-tight tracking-tight text-slate-900 sm:text-5xl">
-            One system for your people, time, and payroll.
+            Your team&apos;s time, pay, and records — all in one place.
           </h1>
           <p className="mt-4 max-w-lg text-base leading-relaxed text-slate-600">
-            Built for BPO operations — 24/7 shift scheduling, night differential,
-            Philippine government contributions, leave management, and self-service.
-            Clock in right here on the bundy.
+            {company} handles shift scheduling, night diff, government contributions, and PTO — so you can focus on running the floor. Punch in right here.
           </p>
 
           <dl className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-3">
             {[
-              { icon: Users, label: "201 Records", desc: "Complete employee files" },
+              { icon: Users, label: "Employee Records", desc: "201 files, gov IDs, org chart" },
               { icon: Clock, label: "Time & Attendance", desc: "Graveyard-safe DTR" },
               { icon: Wallet, label: "Payroll", desc: "SSS · PHIC · HDMF · BIR" },
             ].map(({ icon: Icon, label, desc }) => (
@@ -67,7 +85,7 @@ export default async function LandingPage() {
 
           <p className="mt-8 flex items-center gap-2 text-xs text-slate-500">
             <ShieldCheck className="h-4 w-4 text-emerald-600" />
-            Sessions are encrypted and every punch is audit-logged.
+            Encrypted sessions. Every punch is audit-logged.
           </p>
         </div>
 
