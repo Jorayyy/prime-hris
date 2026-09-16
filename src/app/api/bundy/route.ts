@@ -3,7 +3,7 @@ import type { TimeLogType } from "@prisma/client";
 import { db } from "@/lib/db";
 import { verifyBundyPin } from "@/lib/auth";
 import { resolveWorkDate } from "@/lib/time";
-import { PUNCH_LABELS, PUNCH_TYPES, computeBreakMinutes, expectedNextPunch, validatePunch } from "@/lib/punch";
+import { PUNCH_LABELS, PUNCH_TYPES, computeBreakMinutes, expectedNextPunch, validatePunch, allowedNextPunches, lastPunch } from "@/lib/punch";
 
 /**
  * Simple in-memory throttle: max 5 failed attempts per minute per IP+employee.
@@ -142,10 +142,13 @@ export async function POST(req: NextRequest) {
     select: { type: true, timestamp: true },
   });
 
+  const nextAllowed = allowedNextPunches(lastPunch([...todayLogs, { type, timestamp: now }]));
+
   return NextResponse.json({
     ok: true,
     type,
     nextType: expectedNextPunch([...todayLogs, { type, timestamp: now }]),
+    allowedPunches: nextAllowed,
     timestamp: now.toISOString(),
     employeeName: `${employee.firstName} ${employee.lastName}`,
     position: employee.position?.title ?? null,

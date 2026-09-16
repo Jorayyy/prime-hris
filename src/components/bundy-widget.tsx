@@ -25,6 +25,7 @@ type BundyResult = {
   error?: string;
   type?: string;
   nextType?: string;
+  allowedPunches?: string[];
   employeeName?: string;
   position?: string | null;
   recentPunches?: RecentPunch[];
@@ -74,6 +75,7 @@ export default function BundyWidget({ company }: { company: string }) {
   const [employeeNumber, setEmployeeNumber] = useState("");
   const [pin, setPin] = useState("");
   const [punchType, setPunchType] = useState("IN");
+  const [allowedPunches, setAllowedPunches] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<BundyResult | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
@@ -113,6 +115,7 @@ export default function BundyWidget({ company }: { company: string }) {
         setEmployeeNumber("");
         setPin("");
         if (data.nextType) setPunchType(data.nextType);
+        if (data.allowedPunches) setAllowedPunches(data.allowedPunches);
         triggerPulse();
         setTimeout(() => setResult(null), 10000);
       } else {
@@ -227,15 +230,19 @@ export default function BundyWidget({ company }: { company: string }) {
                 {PUNCH_OPTIONS.map((o) => {
                   const Icon = o.icon;
                   const active = punchType === o.value;
+                  const allowed = allowedPunches.length === 0 || allowedPunches.includes(o.value);
                   return (
                     <button
                       key={o.value}
                       type="button"
+                      disabled={!allowed}
                       onClick={() => setPunchType(o.value)}
                       className={`flex flex-col items-center gap-1 rounded-lg px-1.5 py-2.5 text-[10px] font-semibold transition-all ${
                         active
                           ? "bg-[var(--brand)] text-white shadow-md ring-2 ring-[var(--brand)] ring-offset-1"
-                          : "bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-800"
+                          : allowed
+                            ? "bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-800"
+                            : "bg-slate-50 text-slate-300 cursor-not-allowed opacity-50"
                       }`}
                     >
                       <Icon className="h-4 w-4" />
