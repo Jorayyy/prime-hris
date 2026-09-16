@@ -199,7 +199,11 @@ export default function BundyWidget({ company }: { company: string }) {
                 className="field text-center font-mono text-lg uppercase tracking-widest"
                 placeholder="e.g. EMP0001"
                 value={employeeNumber}
-                onChange={(e) => setEmployeeNumber(e.target.value)}
+                onChange={(e) => {
+                  setEmployeeNumber(e.target.value);
+                  setAllowedPunches([]);
+                  setPunchType("IN");
+                }}
                 autoComplete="off"
                 required
               />
