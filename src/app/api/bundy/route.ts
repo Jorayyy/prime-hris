@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
 
   const employee = await db.employee.findUnique({
     where: { employeeNumber },
-    include: { user: true },
+    include: { user: true, position: true },
   });
 
   const invalid = () =>
@@ -135,12 +135,25 @@ export async function POST(req: NextRequest) {
 
   await updateAttendanceSummary(employee.id, workDate, timezone, settings?.graceMinutes ?? 5);
 
+  const recentLogs = await db.timeLog.findMany({
+    where: { employeeId: employee.id, workDate },
+    orderBy: { timestamp: "desc" },
+    take: 3,
+    select: { type: true, timestamp: true },
+  });
+
   return NextResponse.json({
     ok: true,
     type,
     nextType: expectedNextPunch([...todayLogs, { type, timestamp: now }]),
     timestamp: now.toISOString(),
-    name: `${employee.firstName} ${employee.lastName}`,
+    employeeName: `${employee.firstName} ${employee.lastName}`,
+    position: employee.position?.title ?? null,
+    recentPunches: recentLogs.map((l) => ({
+      type: l.type,
+      label: PUNCH_LABELS[l.type],
+      time: l.timestamp.toLocaleTimeString("en-PH", { hour: "2-digit", minute: "2-digit", hour12: true }),
+    })),
     message:
       type === "IN"
         ? `Good day, ${employee.firstName}! Clock-in recorded.`
