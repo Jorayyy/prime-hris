@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useMemo } from "react";
 import { Button } from "@/components/ui";
 
 type ShiftTemplate = {
@@ -14,8 +14,6 @@ type ShiftTemplate = {
 type Assignment = {
   id: string;
   date: string;
-  employeeId: string;
-  employee: { firstName: string; lastName: string; employeeNumber: string };
   shiftTemplate: ShiftTemplate | null;
   customStart: string | null;
   customEnd: string | null;
@@ -23,6 +21,7 @@ type Assignment = {
 };
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
+const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 function getWeekStart(date: Date) {
   const d = new Date(date);
@@ -41,8 +40,16 @@ function parseTime(time: string) {
   return { hours: h, minutes: m };
 }
 
-export default function WeeklyTimelineView({ assignments }: { assignments: Assignment[] }) {
-  const [weekStart, setWeekStart] = useState(() => getWeekStart(new Date()));
+interface Props {
+  assignments: Assignment[];
+  currentDate: Date;
+  onPrevWeek: () => void;
+  onNextWeek: () => void;
+  onThisWeek: () => void;
+}
+
+export default function WeeklyTimelineView({ assignments, currentDate, onPrevWeek, onNextWeek, onThisWeek }: Props) {
+  const weekStart = useMemo(() => getWeekStart(currentDate), [currentDate]);
 
   const weekDays = useMemo(() => {
     return Array.from({ length: 7 }, (_, i) => {
@@ -60,37 +67,21 @@ export default function WeeklyTimelineView({ assignments }: { assignments: Assig
     return map;
   }, [assignments]);
 
-  function prevWeek() {
-    const d = new Date(weekStart);
-    d.setDate(d.getDate() - 7);
-    setWeekStart(d);
-  }
-
-  function nextWeek() {
-    const d = new Date(weekStart);
-    d.setDate(d.getDate() + 7);
-    setWeekStart(d);
-  }
-
-  function thisWeek() {
-    setWeekStart(getWeekStart(new Date()));
-  }
-
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Button variant="secondary" onClick={prevWeek} className="px-2 py-1">
+          <Button variant="secondary" onClick={onPrevWeek} className="px-2 py-1">
             <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
           </Button>
           <h3 className="text-sm font-bold">
             {weekStart.toLocaleDateString("default", { month: "short", day: "numeric" })} -{" "}
             {weekDays[6].toLocaleDateString("default", { month: "short", day: "numeric", year: "numeric" })}
           </h3>
-          <Button variant="secondary" onClick={nextWeek} className="px-2 py-1">
+          <Button variant="secondary" onClick={onNextWeek} className="px-2 py-1">
             <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
           </Button>
-          <Button variant="ghost" onClick={thisWeek} className="ml-2 text-xs">This Week</Button>
+          <Button variant="ghost" onClick={onThisWeek} className="ml-2 text-xs">This Week</Button>
         </div>
       </div>
 
@@ -161,5 +152,3 @@ export default function WeeklyTimelineView({ assignments }: { assignments: Assig
     </div>
   );
 }
-
-const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];

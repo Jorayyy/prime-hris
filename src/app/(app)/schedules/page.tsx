@@ -13,25 +13,12 @@ export default async function SchedulesPage() {
   const user = (await getSessionUser())!;
   if (!HR_ROLES.includes(user.role)) notFound();
 
-  const [templates, employees, assignments] = await Promise.all([
+  const [templates, employees] = await Promise.all([
     db.shiftTemplate.findMany({ where: { isActive: true }, orderBy: { startTime: "asc" } }),
     db.employee.findMany({
       where: { status: "ACTIVE" },
       select: { id: true, firstName: true, lastName: true, employeeNumber: true, campaign: { select: { name: true } } },
       orderBy: [{ campaign: { name: "asc" } }, { lastName: "asc" }],
-    }),
-    db.shiftAssignment.findMany({
-      where: {
-        date: {
-          gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
-          lte: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0),
-        },
-      },
-      include: {
-        employee: { select: { firstName: true, lastName: true, employeeNumber: true } },
-        shiftTemplate: { select: { id: true, name: true, startTime: true, endTime: true, color: true } },
-      },
-      orderBy: { date: "asc" },
     }),
   ]);
 
@@ -44,7 +31,7 @@ export default async function SchedulesPage() {
       <div className="mb-6">
         <h1 className="text-xl font-bold tracking-tight">Shift Schedules</h1>
         <p className="mt-1 text-sm text-[var(--muted)]">
-          Templates, bulk assignment, rotation patterns, and calendar views for BPO shifts.
+          View and manage employee shift assignments.
         </p>
       </div>
 
@@ -75,19 +62,7 @@ export default async function SchedulesPage() {
       </div>
 
       <div className="mb-6">
-        <ScheduleCalendarWrapper
-          assignments={assignments.map((a) => ({
-            id: a.id,
-            date: a.date.toISOString().slice(0, 10),
-            employeeId: a.employeeId,
-            employee: a.employee,
-            shiftTemplate: a.shiftTemplate,
-            customStart: a.customStart,
-            customEnd: a.customEnd,
-            isRestDay: a.isRestDay,
-          }))}
-          employees={employees}
-        />
+        <ScheduleCalendarWrapper employees={employees} />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">

@@ -264,3 +264,33 @@ export async function assignRotationScheduleAction(_prev: { error?: string; ok?:
   revalidatePath("/schedules");
   return { ok: true, count: created };
 }
+
+export async function getEmployeeScheduleAction(employeeId: string, year: number, month: number) {
+  await requireRole("ADMIN", "HR", "PAYROLL", "MANAGER");
+
+  const start = new Date(year, month, 1);
+  const end = new Date(year, month + 1, 0);
+
+  const assignments = await db.shiftAssignment.findMany({
+    where: {
+      employeeId,
+      date: { gte: start, lte: end },
+    },
+    include: {
+      shiftTemplate: { select: { id: true, name: true, startTime: true, endTime: true, color: true } },
+    },
+    orderBy: { date: "asc" },
+  });
+
+  return {
+    ok: true,
+    assignments: assignments.map((a) => ({
+      id: a.id,
+      date: a.date.toISOString().slice(0, 10),
+      shiftTemplate: a.shiftTemplate,
+      customStart: a.customStart,
+      customEnd: a.customEnd,
+      isRestDay: a.isRestDay,
+    })),
+  };
+}
