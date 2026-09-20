@@ -2,7 +2,7 @@
 import { db } from "@/lib/db";
 import { getSessionUser, SYSTEM_ROLES } from "@/lib/auth";
 import { Card, CardHeader } from "@/components/ui";
-import { createUserAction, updateUserAction } from "@/lib/actions/users";
+import { createUserAction, updateUserAction, linkUserToEmployeeAction } from "@/lib/actions/users";
 import { UserRow, CreateForm } from "./forms";
 
 export const metadata = { title: "User Accounts" };
@@ -28,6 +28,7 @@ export default async function UsersPage() {
 
   const staffUsers = users.filter((u) => STAFF_ROLES.includes(u.role));
   const employeeUsers = users.filter((u) => !STAFF_ROLES.includes(u.role));
+  const unlinkedEmployees = unlinked.map((e) => ({ id: e.id, label: `${e.firstName} ${e.lastName} (${e.employeeNumber})` }));
 
   return (
     <>
@@ -64,6 +65,7 @@ export default async function UsersPage() {
                       employee: u.employee
                         ? `${u.employee.firstName} ${u.employee.lastName} (${u.employee.employeeNumber})`
                         : null,
+                      unlinkedEmployees,
                     }} />
                   ))}
                 </tbody>

@@ -1,6 +1,6 @@
 "use client";
 
-import { updateUserAction } from "@/lib/actions/users";
+import { updateUserAction, linkUserToEmployeeAction } from "@/lib/actions/users";
 
 import { useActionState, useState } from "react";
 import { LoaderCircle } from "lucide-react";
@@ -16,6 +16,7 @@ type UserRowData = {
   lastLoginAt: string | null;
   employee: string | null;
   hideRole?: boolean;
+  unlinkedEmployees?: Array<{ id: string; label: string }>;
 };
 
 function Feedback({ state }: { state: ActionState }) {
@@ -28,6 +29,7 @@ export function UserRow({ u }: { u: UserRowData }) {
   const [roleState, roleAction, rolePending] = useActionState(updateUserAction, {} as ActionState);
   const [pwState, pwAction, pwPending] = useActionState(updateUserAction, {} as ActionState);
   const [tglState, tglAction, tglPending] = useActionState(updateUserAction, {} as ActionState);
+  const [linkState, linkAction, linkPending] = useActionState(linkUserToEmployeeAction, {} as ActionState);
   const isOwner = u.role === "SUPER_ADMIN";
 
   return (
@@ -59,7 +61,27 @@ export function UserRow({ u }: { u: UserRowData }) {
           <Feedback state={roleState} />
         </td>
       )}
-      <td className="px-5 py-2.5 text-xs">{u.employee ?? "-"}</td>
+      <td className="px-5 py-2.5 text-xs">
+        {u.employee ? (
+          u.employee
+        ) : u.unlinkedEmployees && u.unlinkedEmployees.length > 0 ? (
+          <form action={linkAction} className="flex items-center gap-1.5">
+            <input type="hidden" name="userId" value={u.id} />
+            <select name="employeeId" className="field !w-auto !py-1 text-[11px]" required>
+              <option value="">Link employee...</option>
+              {u.unlinkedEmployees.map((e) => (
+                <option key={e.id} value={e.id}>{e.label}</option>
+              ))}
+            </select>
+            <button disabled={linkPending} className="text-[11px] font-semibold text-[var(--brand)] hover:underline">
+              {linkPending ? "..." : "Link"}
+            </button>
+          </form>
+        ) : (
+          <span className="text-[var(--muted)]">—</span>
+        )}
+        <Feedback state={linkState} />
+      </td>
       <td className="px-5 py-2.5">
         <div className="flex flex-col gap-1">
           <Badge tone={statusTone(u.isActive ? "ACTIVE" : "INACTIVE")}>{u.isActive ? "Active" : "Disabled"}</Badge>

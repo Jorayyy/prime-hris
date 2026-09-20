@@ -128,6 +128,25 @@ export async function createUserAction(_prev: { error?: string; ok?: boolean }, 
   }
 }
 
+export async function linkUserToEmployeeAction(_prev: { error?: string; ok?: boolean }, formData: FormData) {
+  try {
+    await requireRole("ADMIN");
+    const userId = formData.get("userId") as string;
+    const employeeId = formData.get("employeeId") as string;
+    if (!userId || !employeeId) return { error: "Missing user or employee." };
+
+    const target = await db.user.findUnique({ where: { id: userId } });
+    if (!target) return { error: "User not found." };
+    if (target.role === "SUPER_ADMIN") return { error: "Cannot modify system owner." };
+
+    await db.user.update({ where: { id: userId }, data: { employeeId } });
+    await recordAudit({ action: "LINK_USER_EMPLOYEE", entity: "User", entityId: userId });
+    return { ok: true };
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Failed to link." };
+  }
+}
+
 export async function updateUserAction(_prev: { error?: string; ok?: boolean }, formData: FormData) {
   try {
     const actor = await requireRole("ADMIN");

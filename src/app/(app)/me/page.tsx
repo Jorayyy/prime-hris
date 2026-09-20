@@ -49,7 +49,7 @@ export default async function MySpacePage() {
     return (
       <EmptyState
         title="No employee record linked"
-        hint="This account is administrative only. Link it to an employee record to see personal data."
+        hint="This account is administrative only. Ask the system owner to link it from the Users page."
       />
     );
   }
