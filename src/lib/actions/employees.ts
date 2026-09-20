@@ -103,7 +103,6 @@ export async function createEmployeeAction(_prev: EmployeeFormState, formData: F
   const employee = await db.employee.create({
     data: {
       employeeNumber,
-      userId: user.id,
       firstName: data.firstName,
       middleName: data.middleName || null,
       lastName: data.lastName,
@@ -134,6 +133,8 @@ export async function createEmployeeAction(_prev: EmployeeFormState, formData: F
       bundyPinSetAt: new Date(),
     },
   });
+
+  await db.user.update({ where: { id: user.id }, data: { employeeId: employee.id } });
 
   await db.salaryHistoryEntry.create({
     data: {

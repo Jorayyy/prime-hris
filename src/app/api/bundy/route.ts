@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
 
   const employee = await db.employee.findUnique({
     where: { employeeNumber },
-    include: { user: true, position: true },
+    include: { users: true, position: true },
   });
 
   const invalid = () =>

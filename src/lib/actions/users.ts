@@ -6,11 +6,15 @@ import { db } from "@/lib/db";
 import { requireRole } from "@/lib/auth";
 import { recordAudit } from "@/lib/actions/audit";
 
+const STAFF_ROLES = ["ADMIN", "HR", "PAYROLL", "MANAGER"];
+
 const createSchema = z.object({
   email: z.string().email().max(200),
   password: z.string().min(8).max(72),
   role: z.enum(["ADMIN", "HR", "PAYROLL", "MANAGER", "EMPLOYEE"]),
   employeeId: z.string().optional(),
+  firstName: z.string().max(100).optional(),
+  lastName: z.string().max(100).optional(),
 });
 
 const updateSchema = z.object({
@@ -19,6 +23,30 @@ const updateSchema = z.object({
   role: z.enum(["ADMIN", "HR", "PAYROLL", "MANAGER", "EMPLOYEE"]).optional(),
   password: z.string().min(8).max(72).optional(),
 });
+
+async function generateEmployeeNumber(): Promise<string> {
+  const last = await db.employee.findFirst({
+    where: { employeeNumber: { startsWith: "ADM" } },
+    orderBy: { employeeNumber: "desc" },
+    select: { employeeNumber: true },
+  });
+  if (!last) return "ADM0001";
+  const num = parseInt(last.employeeNumber.replace("ADM", ""), 10) + 1;
+  return `ADM${String(num).padStart(4, "0")}`;
+}
+
+async function resolveEmployeeEmail(firstName: string, lastName: string): Promise<string> {
+  const base = `${firstName.toLowerCase()}.${lastName.toLowerCase()}`.replace(/[^a-z0-9.]/g, "");
+  const email = `${base}@company.com`;
+  const exists = await db.user.findUnique({ where: { email } });
+  if (!exists) return email;
+  for (let i = 2; i < 100; i++) {
+    const variant = `${base}${i}@company.com`;
+    const vExists = await db.user.findUnique({ where: { email: variant } });
+    if (!vExists) return variant;
+  }
+  return `${base}${Date.now()}@company.com`;
+}
 
 export async function listUsers() {
   await requireRole("ADMIN");
@@ -35,13 +63,62 @@ export async function createUserAction(_prev: { error?: string; ok?: boolean }, 
     const data = createSchema.parse(raw);
     const exists = await db.user.findUnique({ where: { email: data.email.toLowerCase() } });
     if (exists) return { error: "A user with this email already exists." };
+
+    const isStaff = STAFF_ROLES.includes(data.role);
+
+    if (isStaff) {
+      if (!data.firstName || !data.lastName) {
+        return { error: "First name and last name are required for staff accounts." };
+      }
+
+      let employeeId = data.employeeId;
+
+      if (!employeeId) {
+        const emp = await db.employee.create({
+          data: {
+            employeeNumber: await generateEmployeeNumber(),
+            firstName: data.firstName,
+            lastName: data.lastName,
+            hireDate: new Date(),
+            employmentType: "REGULAR",
+            basicSalary: 0,
+            dailyRate: 0,
+          },
+        });
+        employeeId = emp.id;
+      }
+
+      const staffUser = await db.user.create({
+        data: {
+          email: data.email.toLowerCase(),
+          passwordHash: await bcrypt.hash(data.password, 12),
+          role: data.role,
+          isActive: true,
+          employeeId,
+        },
+      });
+
+      const pairedEmail = await resolveEmployeeEmail(data.firstName, data.lastName);
+      const pairedUser = await db.user.create({
+        data: {
+          email: pairedEmail,
+          passwordHash: await bcrypt.hash(data.password, 12),
+          role: "EMPLOYEE",
+          isActive: true,
+          employeeId,
+        },
+      });
+
+      await recordAudit({ action: "CREATE_USER", entity: "User", entityId: staffUser.id });
+      return { ok: true };
+    }
+
     const user = await db.user.create({
       data: {
         email: data.email.toLowerCase(),
         passwordHash: await bcrypt.hash(data.password, 12),
         role: data.role,
         isActive: true,
-        ...(data.employeeId ? { employeeId: data.employeeId } : {}),
       },
     });
     await recordAudit({ action: "CREATE_USER", entity: "User", entityId: user.id });

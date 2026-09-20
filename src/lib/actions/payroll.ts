@@ -94,8 +94,8 @@ async function setPeriodStatus(periodId: string, action: "PROCESS" | "APPROVE" |
     try {
       const [employees, settings, holidays] = await Promise.all([
         db.employee.findMany({
-          where: { status: "ACTIVE", userId: { not: null } },
-          include: { user: { select: { email: true } } },
+          where: { status: "ACTIVE", users: { some: {} } },
+          include: { users: { select: { email: true } } },
         }),
         db.companySettings.findFirst(),
         db.holiday.findMany({
@@ -440,8 +440,8 @@ export async function processGroupAction(_prev: { error?: string; ok?: boolean }
 
   // Find employees in this site + group
   const employees = await db.employee.findMany({
-    where: { status: "ACTIVE", userId: { not: null }, siteId: parsed.data.siteId, groupId: parsed.data.groupId },
-    include: { user: { select: { email: true } } },
+    where: { status: "ACTIVE", users: { some: {} }, siteId: parsed.data.siteId, groupId: parsed.data.groupId },
+    include: { users: { select: { email: true } } },
   });
 
   if (employees.length === 0) {
@@ -757,7 +757,7 @@ export async function previewPayrollAction(
   if (!group) return { rows: [], exceptions: [], error: "Group not found." };
 
   const employees = await db.employee.findMany({
-    where: { status: "ACTIVE", userId: { not: null }, siteId, groupId },
+    where: { status: "ACTIVE", users: { some: {} }, siteId, groupId },
   });
 
   if (employees.length === 0) return { rows: [], exceptions: [], error: "No active employees found." };

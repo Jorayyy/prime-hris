@@ -222,7 +222,6 @@ async function main() {
       update: {},
       create: {
         employeeNumber: e.num,
-        userId: user.id,
         firstName: e.first,
         lastName: e.last,
         hireDate: new Date("2025-01-15"),
@@ -240,16 +239,16 @@ async function main() {
         tinNumber: `123-456-${Math.floor(100 + Math.random() * 900)}-000`,
       },
     });
+    await db.user.update({ where: { id: user.id }, data: { employeeId: emp.id } });
     createdEmployees.push({ id: emp.id, employeeNumber: e.num, firstName: e.first, lastName: e.last, basicSalary: e.salary });
   }
 
   // Link admin
   const adminEmp = await db.employee.findUnique({ where: { employeeNumber: "ADM0001" } });
   if (!adminEmp) {
-    await db.employee.create({
+    const emp = await db.employee.create({
       data: {
         employeeNumber: "ADM0001",
-        userId: admin.id,
         firstName: "System",
         lastName: "Administrator",
         hireDate: new Date(),
@@ -259,6 +258,7 @@ async function main() {
         positionId: leadPos.id,
       },
     });
+    await db.user.update({ where: { id: admin.id }, data: { employeeId: emp.id } });
   }
 
   // ---------- Holidays ----------

@@ -36,7 +36,7 @@ export default async function EmployeeDetailPage({
       campaign: true,
       position: true,
       reportsTo: true,
-      user: { select: { email: true, role: true, lastLoginAt: true, isActive: true } },
+      users: { select: { email: true, role: true, lastLoginAt: true, isActive: true } },
       salaryHistory: { orderBy: { effectiveAt: "desc" }, take: 10 },
       employmentHistory: { orderBy: { effectiveAt: "desc" }, take: 15 },
     },
@@ -113,8 +113,8 @@ export default async function EmployeeDetailPage({
             <Row label="PhilHealth" value={employee.philhealthNumber ?? "—"} />
             <Row label="Pag-IBIG" value={employee.pagibigNumber ?? "—"} />
             <Row label="TIN" value={employee.tinNumber ?? "—"} />
-            <Row label="Login Email" value={employee.user?.email ?? "—"} />
-            <Row label="System Role" value={employee.user?.role ?? "—"} />
+            <Row label="Login Email" value={employee.users[0]?.email ?? "—"} />
+            <Row label="System Role" value={employee.users[0]?.role ?? "—"} />
             <Row
               label="Bundy PIN"
               value={

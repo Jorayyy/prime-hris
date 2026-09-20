@@ -240,7 +240,7 @@ export default async function DashboardPage() {
 
     // Employee dashboard
     const employee = await db.employee.findFirst({
-      where: { userId: sessionUser.id },
+      where: { users: { some: { id: sessionUser.id } } },
       include: {
         department: { select: { name: true } },
         position: { select: { title: true } },
