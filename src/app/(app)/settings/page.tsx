@@ -1,13 +1,14 @@
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { getSessionUser, HR_ROLES } from "@/lib/auth";
-import { Card, CardHeader, EmptyState } from "@/components/ui";
+import { Card } from "@/components/ui";
 import { SettingsForm, OrgUnitForm } from "./forms";
 import { AddForm, Row as IpRow } from "./ip-forms";
 import { addAllowedIpAction, removeAllowedIpAction, toggleAllowedIpAction } from "@/lib/actions/ips";
 import ShiftTemplateEditor from "./shift-template-editor";
 import GroupManager from "./group-manager";
 import LogoPicker from "./logo-picker";
+import SettingsLayout from "./settings-layout";
 
 export const metadata = { title: "Settings" };
 
@@ -26,46 +27,51 @@ export default async function SettingsPage() {
     db.group.findMany({ orderBy: { name: "asc" }, include: { _count: { select: { employees: true } } } }),
   ]);
 
-  return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-bold tracking-tight">Settings</h1>
-        <p className="mt-1 text-sm text-[var(--muted)]">
-          Company identity (used across the bundy page and payslips), payroll configuration, and org structure.
-        </p>
-      </div>
-
-      <Card>
-        <CardHeader title="Company Profile" subtitle="The company name here customizes the whole system" />
-        <SettingsForm
-          settings={
-            settings && {
-              name: settings.name,
-              legalName: settings.legalName,
-              tagline: settings.tagline,
-              address: settings.address,
-              city: settings.city,
-              email: settings.email,
-              phone: settings.phone,
-              website: settings.website,
-              tin: settings.tin,
-              rdoCode: settings.rdoCode,
-              timezone: settings.timezone,
-              payFrequency: settings.payFrequency,
-              graceMinutes: settings.graceMinutes,
-            }
-          }
-        />
-      </Card>
-
-      <Card>
-        <CardHeader title="Company Logo" subtitle="Displayed in the sidebar and on payslips" />
-        <LogoPicker logoUrl={settings?.logoUrl ?? null} />
-      </Card>
-
-      <div className="grid gap-6 lg:grid-cols-2">
+  const sections = [
+    {
+      id: "profile",
+      title: "Company Profile",
+      subtitle: "The company name here customizes the whole system",
+      content: (
         <Card>
-          <CardHeader title="Organization Structure" subtitle="Sites, departments, campaigns/accounts, positions" />
+          <SettingsForm
+            settings={
+              settings && {
+                name: settings.name,
+                legalName: settings.legalName,
+                tagline: settings.tagline,
+                address: settings.address,
+                city: settings.city,
+                email: settings.email,
+                phone: settings.phone,
+                website: settings.website,
+                tin: settings.tin,
+                rdoCode: settings.rdoCode,
+                timezone: settings.timezone,
+                payFrequency: settings.payFrequency,
+                graceMinutes: settings.graceMinutes,
+              }
+            }
+          />
+        </Card>
+      ),
+    },
+    {
+      id: "logo",
+      title: "Company Logo",
+      subtitle: "Displayed in the sidebar and on payslips",
+      content: (
+        <Card>
+          <LogoPicker logoUrl={settings?.logoUrl ?? null} />
+        </Card>
+      ),
+    },
+    {
+      id: "org",
+      title: "Organization Structure",
+      subtitle: "Sites, departments, campaigns/accounts, positions",
+      content: (
+        <Card>
           <div className="space-y-4 p-5">
             <OrgUnitForm kind="SITE" label="Site" placeholder="e.g., Tacloban Main Site" extraLabel="Address" />
             <OrgUnitForm kind="DEPARTMENT" label="Department" placeholder="e.g., Operations" />
@@ -76,16 +82,23 @@ export default async function SettingsPage() {
             {sites.length} sites · {departments.length} departments · {campaigns.length} campaigns · {positions.length} positions
           </div>
         </Card>
-
+      ),
+    },
+    {
+      id: "payroll",
+      title: "Payroll Groups",
+      subtitle: "Define payroll defaults per group — rate, frequency, night diff, allowances",
+      content: (
         <Card>
-          <CardHeader title="Payroll Groups" subtitle="Define payroll defaults per group — rate, frequency, night diff, allowances" />
           <GroupManager groups={groups as any} sites={sites as any} />
         </Card>
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-2">
+      ),
+    },
+    {
+      id: "shifts",
+      title: "Shift Templates & Holidays",
+      content: (
         <Card>
-          <CardHeader title="Shift Templates & Holidays" />
           <div className="space-y-4 p-5">
             <OrgUnitForm
               kind="SHIFT_TEMPLATE"
@@ -97,16 +110,16 @@ export default async function SettingsPage() {
           </div>
           <ShiftTemplateEditor templates={templates} />
         </Card>
-
+      ),
+    },
+    {
+      id: "ips",
+      title: "Bundy Clock IPs",
+      subtitle: allowedIps.some((i) => i.active)
+        ? "Punching is RESTRICTED to the active IPs below"
+        : "No active IPs registered - punching is open to all addresses",
+      content: (
         <Card>
-          <CardHeader
-            title="Bundy Clock - Allowed IPs"
-            subtitle={
-              allowedIps.some((i) => i.active)
-                ? "Punching is RESTRICTED to the active IPs below"
-                : "No active IPs registered - punching is open to all addresses"
-            }
-          />
           <AddForm action={addAllowedIpAction} />
           {allowedIps.length > 0 ? (
             <ul className="pb-3">
@@ -120,12 +133,29 @@ export default async function SettingsPage() {
             </p>
           )}
         </Card>
-      </div>
+      ),
+    },
+    {
+      id: "gov",
+      title: "Government Tables",
+      subtitle: "Seeded SSS / PhilHealth / Pag-IBIG / BIR contribution tables",
+      content: (
+        <Card>
+          <GovTablesSummary />
+        </Card>
+      ),
+    },
+  ];
 
-      <Card>
-        <CardHeader title="Government Deduction Tables" subtitle="Seeded with current SSS / PhilHealth / Pag-IBIG / BIR tables - update via database when new circulars take effect" />
-        <GovTablesSummary />
-      </Card>
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-xl font-bold tracking-tight">Settings</h1>
+        <p className="mt-1 text-sm text-[var(--muted)]">
+          Company identity, payroll configuration, and org structure.
+        </p>
+      </div>
+      <SettingsLayout sections={sections} />
     </div>
   );
 }
