@@ -8,7 +8,7 @@ import { addAllowedIpAction, removeAllowedIpAction, toggleAllowedIpAction } from
 import ShiftTemplateEditor from "./shift-template-editor";
 import GroupManager from "./group-manager";
 import LogoPicker from "./logo-picker";
-import SettingsLayout from "./settings-layout";
+import SidebarLayout from "./settings-layout";
 
 export const metadata = { title: "Settings" };
 
@@ -155,7 +155,7 @@ export default async function SettingsPage() {
           Company identity, payroll configuration, and org structure.
         </p>
       </div>
-      <SettingsLayout sections={sections} />
+      <SidebarLayout sections={sections} />
     </div>
   );
 }
