@@ -29,6 +29,7 @@ export default async function DashboardPage() {
         unresolvedExceptions,
         recentActivity,
         allEmployeesWithDept,
+        weeklyHours,
       ] = await Promise.all([
         db.employee.count({ where: { status: "ACTIVE" } }),
 
@@ -87,6 +88,26 @@ export default async function DashboardPage() {
             department: { select: { id: true } },
           },
         }),
+
+        (async () => {
+          const weeks: { label: string; totalHours: number; overtimeHours: number }[] = [];
+          for (let w = 3; w >= 0; w--) {
+            const weekEnd = new Date(today);
+            weekEnd.setDate(weekEnd.getDate() - w * 7);
+            const weekStart = new Date(weekEnd);
+            weekStart.setDate(weekStart.getDate() - 6);
+            const records = await db.attendanceDaily.findMany({
+              where: { workDate: { gte: weekStart, lt: weekEnd } },
+              select: { workedMinutes: true, overtimeMinutes: true },
+            });
+            weeks.push({
+              label: `${weekStart.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`,
+              totalHours: records.reduce((s, r) => s + (r.workedMinutes ?? 0), 0) / 60,
+              overtimeHours: records.reduce((s, r) => s + (r.overtimeMinutes ?? 0), 0) / 60,
+            });
+          }
+          return weeks;
+        })(),
       ]);
 
       // Attendance counts
@@ -234,6 +255,7 @@ export default async function DashboardPage() {
             createdAt: a.createdAt.toISOString(),
           }))}
           isPayroll={isPayroll}
+          weeklyHours={weeklyHours}
         />
       );
     }
