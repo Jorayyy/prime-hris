@@ -28,12 +28,12 @@ export default function EmployeeSearch({ initialQuery, initialStatus }: { initia
         e.preventDefault();
         apply();
       }}
-      className="flex flex-wrap items-center gap-2"
+      className="flex items-center gap-2"
     >
-      <div className="relative min-w-60 flex-1">
+      <div className="relative w-72 shrink-0">
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
         <input
-          className="field pl-9"
+          className="field !py-2 !pl-9 !text-sm"
           placeholder="Search name or employee number…"
           value={q}
           onChange={(e) => setQ(e.target.value)}
@@ -41,7 +41,7 @@ export default function EmployeeSearch({ initialQuery, initialStatus }: { initia
         />
       </div>
       <select
-        className="field w-auto"
+        className="field !w-auto !py-2 !text-sm"
         value={status}
         onChange={(e) => {
           setStatus(e.target.value);
